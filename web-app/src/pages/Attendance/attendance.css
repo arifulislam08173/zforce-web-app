@@ -1,0 +1,376 @@
+.att-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.att-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.att-title {
+  margin: 0;
+  font-size: 22px;
+}
+
+.att-subtitle {
+  margin: 6px 0 0;
+  opacity: 0.75;
+  font-size: 13px;
+}
+
+.att-top-actions {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* Card */
+.att-card {
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+/* Filters */
+.att-filters {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 160px;
+  gap: 10px;
+  align-items: end;
+}
+
+@media (max-width: 900px) {
+  .att-filters {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 560px) {
+  .att-filters {
+    grid-template-columns: 1fr;
+  }
+}
+
+.att-label {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 6px;
+  opacity: 0.8;
+}
+
+.att-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(0,0,0,0.14);
+  border-radius: 10px;
+  outline: none;
+  background: #fff;
+}
+
+.att-input:focus {
+  border-color: rgba(17, 24, 39, 0.35);
+  box-shadow: 0 0 0 4px rgba(17, 24, 39, 0.08);
+}
+
+/* Buttons */
+.att-btn-primary,
+.att-btn-secondary {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.att-btn-primary {
+  background: #111827;
+  color: #fff;
+}
+
+.att-btn-secondary {
+  background: rgba(17, 24, 39, 0.08);
+  color: #111827;
+}
+
+.att-btn-primary:disabled,
+.att-btn-secondary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Table */
+.att-table-wrap {
+  width: 100%;
+  overflow: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.08);
+}
+
+.att-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 820px;
+  background: #fff;
+}
+
+.att-table th,
+.att-table td {
+  padding: 12px;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.att-empty {
+  text-align: center;
+  padding: 24px;
+  opacity: 0.7;
+}
+
+/* Alerts */
+.att-alert-error {
+  background: rgba(180, 35, 24, 0.08);
+  border: 1px solid rgba(180, 35, 24, 0.18);
+  color: #7a1b12;
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+
+/* Icon buttons (modal close etc) */
+.att-icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: #fff;
+  color: #111827;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.15s ease;
+}
+
+.att-icon-btn:hover {
+  background: rgba(17, 24, 39, 0.06);
+}
+
+.att-icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Modal */
+.att-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 9999;
+}
+
+.att-modal {
+  width: min(900px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+  padding: 14px;
+}
+
+.att-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.att-modal-title {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.att-modal-subtitle {
+  margin-top: 4px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.att-modal-body {
+  margin-top: 12px;
+}
+
+.att-modal-footer {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.att-modal-actions {
+  display: inline-flex;
+  gap: 10px;
+}
+
+.att-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 768px) {
+  .att-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+
+
+
+
+/* Live location card inside modal */
+.att-loc-card {
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 14px;
+  padding: 12px;
+  background: #fff;
+}
+
+.att-loc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.att-loc-title {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.att-loc-meta {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.att-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: rgba(17, 24, 39, 0.08);
+  color: #111827;
+}
+
+.att-badge.ok {
+  background: rgba(16, 185, 129, 0.12);
+  color: #065f46;
+}
+
+.att-hint {
+  margin-top: 6px;
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+
+
+
+
+
+
+.att-map-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.att-map-title {
+  font-weight: 700;
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+.att-map-wrap {
+  margin-top: 10px;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(17, 24, 39, 0.03);
+}
+
+.att-map-iframe {
+  width: 100%;
+  height: 260px;
+  border: 0;
+  display: block;
+}
+
+.att-map-skeleton {
+  height: 260px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.75;
+}
+
+
+
+
+.att-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+  opacity: 0.9;
+}
+
+.att-preview-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.att-preview-card {
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 14px;
+  padding: 12px;
+  background: #fff;
+}
+
+.att-preview-title {
+  font-weight: 800;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.att-preview-value {
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.att-preview-muted {
+  font-size: 12px;
+  opacity: 0.75;
+  margin-top: 4px;
+}

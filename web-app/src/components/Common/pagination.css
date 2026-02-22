@@ -1,0 +1,136 @@
+.ffp-wrap{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap: 12px;
+  padding: 10px 10px;
+  border: 1px solid rgba(229,231,235,.95);
+  background: rgba(249,250,251,.7);
+  border-radius: 16px;
+}
+
+.ffp-left{
+  display:flex;
+  align-items:center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.ffp-info{
+  font-size: 13px;
+  color: #111827;
+  white-space: nowrap;
+}
+
+.ffp-muted{
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.ffp-limit{
+  display:flex;
+  align-items:center;
+  gap: 8px;
+}
+
+.ffp-select{
+  height: 34px;
+  border-radius: 12px;
+  border: 1px solid rgba(229,231,235,.95);
+  background: rgba(255,255,255,.9);
+  padding: 0 10px;
+  outline: none;
+  cursor: pointer;
+}
+
+.ffp-right{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+}
+
+.ffp-btn{
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(13,163,114,.28);
+  background: rgba(13,163,114,.08);
+  color: #0f172a;
+  cursor:pointer;
+  display:flex;
+  align-items:center;
+  gap: 8px;
+  transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+}
+
+.ffp-btn:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(13,163,114,.12);
+  background: rgba(13,163,114,.12);
+}
+
+.ffp-btn:disabled{
+  opacity: .55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.ffp-btnText{
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.ffp-pages{
+  display:flex;
+  align-items:center;
+  gap: 8px;
+}
+
+.ffp-page{
+  width: 36px;
+  height: 36px;
+  border-radius: 14px;
+  border: 1px solid rgba(229,231,235,.95);
+  background: rgba(255,255,255,.9);
+  cursor:pointer;
+  font-weight: 700;
+  font-size: 13px;
+  color: #0f172a;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+}
+
+.ffp-page:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(0,0,0,.06);
+  border-color: rgba(13,163,114,.35);
+}
+
+.ffp-page.active{
+  border-color: rgba(13,163,114,.40);
+  background: linear-gradient(90deg, rgba(13,163,114,.95), rgba(25,197,139,.88));
+  color: white;
+  box-shadow: 0 16px 30px rgba(13,163,114,.18);
+}
+
+.ffp-dots{
+  width: 28px;
+  text-align:center;
+  color: #6b7280;
+  font-weight: 700;
+}
+
+/* Responsive: stack nicely */
+@media (max-width: 700px){
+  .ffp-wrap{
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ffp-left{
+    justify-content: space-between;
+  }
+  .ffp-right{
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+}

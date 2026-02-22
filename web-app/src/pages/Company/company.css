@@ -1,0 +1,84 @@
+.co-page {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.co-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.co-title {
+    margin: 0;
+    font-size: 22px;
+}
+
+.co-subtitle {
+    margin: 6px 0 0;
+    opacity: .75;
+    font-size: 13px;
+}
+
+.co-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.co-card {
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, .08);
+    border-radius: 12px;
+    padding: 14px;
+}
+
+.co-btn {
+    border: 1px solid rgba(0, 0, 0, .12);
+    background: #fff;
+    border-radius: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.co-btn.primary {
+    background: #111827;
+    color: #fff;
+    border-color: #111827;
+}
+
+.co-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.co-table th,
+.co-table td {
+    text-align: left;
+    padding: 10px;
+    border-bottom: 1px solid rgba(0, 0, 0, .06);
+}
+
+.co-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.co-form .full {
+    grid-column: 1 / -1;
+}
+
+.co-input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(0, 0, 0, .14);
+    outline: none;
+}

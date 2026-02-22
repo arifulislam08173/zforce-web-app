@@ -1,0 +1,338 @@
+.exp-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.exp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.exp-title {
+  margin: 0;
+  font-size: 22px;
+}
+
+.exp-subtitle {
+  margin: 6px 0 0;
+  opacity: 0.75;
+  font-size: 13px;
+}
+
+.exp-card {
+  background: #fff;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+/* Filters */
+.exp-filters {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr) 140px;
+  gap: 10px;
+  align-items: end;
+}
+
+@media (max-width: 900px) {
+  .exp-filters {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 560px) {
+  .exp-filters {
+    grid-template-columns: 1fr;
+  }
+}
+
+.exp-label {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 6px;
+  opacity: 0.8;
+}
+
+.exp-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid rgba(0,0,0,0.14);
+  border-radius: 10px;
+  outline: none;
+  background: #fff;
+}
+
+.exp-input:focus {
+  border-color: rgba(17, 24, 39, 0.35);
+  box-shadow: 0 0 0 4px rgba(17, 24, 39, 0.08);
+}
+
+.exp-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 768px) {
+  .exp-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Buttons */
+.exp-btn-primary,
+.exp-btn-secondary {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.exp-btn-primary {
+  background: #111827;
+  color: #fff;
+}
+
+.exp-btn-secondary {
+  background: rgba(17, 24, 39, 0.08);
+  color: #111827;
+}
+
+/* Table */
+.exp-table-wrap {
+  width: 100%;
+  overflow: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.08);
+}
+
+.exp-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 860px;
+  background: #fff;
+}
+
+.exp-table th,
+.exp-table td {
+  padding: 12px;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.exp-th-actions,
+.exp-actions {
+  text-align: right;
+}
+
+.exp-empty {
+  text-align: center;
+  padding: 24px;
+  opacity: 0.7;
+}
+
+/* Status badge */
+.exp-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 1px solid rgba(0,0,0,0.1);
+}
+
+.exp-badge-pending { opacity: 0.85; }
+.exp-badge-approved { font-weight: 700; }
+.exp-badge-rejected { opacity: 0.8; }
+
+/* Action icons */
+.exp-action-row {
+  display: inline-flex;
+  gap: 8px;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.exp-icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: #fff;
+  color: #111827;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.15s ease;
+}
+
+.exp-icon-btn:hover {
+  background: rgba(17, 24, 39, 0.06);
+}
+
+.exp-icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.exp-icon-btn.danger {
+  color: #b42318;
+  border-color: rgba(180, 35, 24, 0.25);
+}
+.exp-icon-btn.danger:hover {
+  background: rgba(180, 35, 24, 0.08);
+}
+
+.exp-icon-btn.success {
+  color: #067647;
+  border-color: rgba(6, 118, 71, 0.25);
+}
+.exp-icon-btn.success:hover {
+  background: rgba(6, 118, 71, 0.08);
+}
+
+/* Pager */
+.exp-pager {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+.exp-pager-info {
+  opacity: 0.75;
+  font-size: 13px;
+}
+
+/* Alerts */
+.exp-alert-error {
+  background: rgba(180, 35, 24, 0.08);
+  border: 1px solid rgba(180, 35, 24, 0.18);
+  color: #7a1b12;
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+
+/* Modal */
+.exp-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 9999;
+}
+
+.exp-modal {
+  width: min(900px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
+  padding: 14px;
+}
+
+.exp-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.exp-modal-title {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.exp-modal-subtitle {
+  margin-top: 4px;
+  font-size: 12px;
+  opacity: 0.7;
+  word-break: break-all;
+}
+
+.exp-modal-body {
+  margin-top: 12px;
+}
+
+.exp-modal-footer {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.exp-modal-actions {
+  display: inline-flex;
+  gap: 10px;
+}
+
+.exp-modal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 768px) {
+  .exp-modal-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.exp-modal-card {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  padding: 12px;
+  background: #fff;
+}
+
+.exp-kv {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+.exp-kv:last-child { border-bottom: none; }
+
+.exp-k { font-size: 12px; opacity: 0.75; }
+.exp-v { font-size: 13px; font-weight: 600; }
+.exp-muted { font-weight: 500; opacity: 0.75; }
+
+.exp-modal-notes {
+  grid-column: 1 / -1;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+
+/* ---------- Expense Form Page ---------- */
+.exp-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.exp-textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+.exp-form-footer {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}

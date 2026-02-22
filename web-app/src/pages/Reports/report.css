@@ -1,0 +1,35 @@
+.report-page{display:flex;flex-direction:column;gap:14px;}
+.report-header{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;}
+.report-title{margin:0;font-size:22px;}
+.report-subtitle{margin:6px 0 0;opacity:.75;font-size:13px;}
+.report-actions{display:flex;gap:10px;flex-wrap:wrap;}
+
+.reportcard{background:#fff;border:1px solid rgba(0,0,0,0.08);border-radius:14px;padding:14px;}
+
+.label{display:block;font-size:13px;margin-bottom:6px;opacity:.8;}
+.input{width:100%;padding:10px 12px;border:1px solid rgba(0,0,0,0.14);border-radius:10px;outline:none;background:#fff;}
+
+.filters-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
+.filters-wide{grid-column:1 / -1;}
+@media (max-width:900px){.filters-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media (max-width:640px){.filters-grid{grid-template-columns:1fr;}.filters-wide{grid-column:auto;}}
+
+.stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;}
+@media (max-width:900px){.stats-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media (max-width:520px){.stats-grid{grid-template-columns:1fr;}}
+
+.statcard{background:#fff;border:1px solid rgba(0,0,0,0.08);border-radius:14px;padding:14px;}
+.stat-label{opacity:.7;font-size:13px;}
+.stat-value{font-size:26px;font-weight:800;margin-top:6px;}
+
+.table-wrap{width:100%;overflow:auto;border-radius:12px;border:1px solid rgba(0,0,0,0.08);}
+.table{width:100%;border-collapse:collapse;min-width:980px;background:#fff;}
+.table th,.table td{padding:12px;border-bottom:1px solid rgba(0,0,0,0.06);text-align:left;white-space:nowrap;}
+.empty{text-align:center;padding:24px;opacity:.7;}
+
+.error-banner{margin-top:12px;border:1px solid rgba(239,68,68,0.35);background:rgba(239,68,68,0.08);border-radius:12px;padding:10px 12px;color:#991B1B;font-size:13px;}
+
+.btn-primary,.btn-secondary{padding:10px 14px;border-radius:10px;border:none;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;}
+.btn-primary{background:#111827;color:#fff;}
+.btn-secondary{background:rgba(17,24,39,0.08);color:#111827;}
+.btn-primary:disabled,.btn-secondary:disabled{opacity:.6;cursor:not-allowed;}

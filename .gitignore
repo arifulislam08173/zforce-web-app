@@ -1,0 +1,121 @@
+# =========================
+# OS / Editor
+# =========================
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+
+.idea/
+*.swp
+*.swo
+
+# =========================
+# Logs
+# =========================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+debug.log
+
+# =========================
+# ENV / Secrets (DO NOT COMMIT)
+# =========================
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# =========================
+# Node (backend + web-app)
+# =========================
+node_modules/
+**/node_modules/
+
+dist/
+build/
+**/build/
+**/dist/
+
+.cache/
+.parcel-cache/
+.next/
+out/
+coverage/
+
+# React / CRA
+web-app/.env.local
+web-app/.env.development.local
+web-app/.env.test.local
+web-app/.env.production.local
+
+# =========================
+# Python (ZForce-FaceService)
+# =========================
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyd
+*.so
+
+.venv/
+venv/
+env/
+**/.venv/
+**/venv/
+**/env/
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pytype/
+.cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# =========================
+# Uploads / Generated media (important!)
+# =========================
+uploads/
+**/uploads/
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.mp4
+*.mov
+
+# If you want to keep an empty uploads folder in git, create uploads/.gitkeep
+# and add this exception:
+!uploads/.gitkeep
+!**/uploads/.gitkeep
+
+# =========================
+# Database / Local data
+# =========================
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.sql.bak
+*.bak
+
+# =========================
+# Archives / Backups
+# =========================
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
