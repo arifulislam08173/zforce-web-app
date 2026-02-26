@@ -1,16 +1,11 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
 
-const dashboardController = require('../controllers/dashboard.controller');
-const { authenticate } = require('../middlewares/auth.middleware');
-// const { authorize } = require('../middlewares/role.middleware'); // role-based access
+const dashboardController = require("../controllers/dashboard.controller");
+const { authenticate } = require("../middlewares/auth.middleware");
 
-// GET /api/dashboard/stats
-router.get(
-  '/stats',
-  authenticate, 
-  // authorize('ADMIN', 'MANAGER'), 
-  dashboardController.getStats
-);
+router.use(authenticate);
+
+router.get("/stats", dashboardController.getStats);
 
 module.exports = router;

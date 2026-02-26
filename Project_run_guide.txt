@@ -1,0 +1,93 @@
+ZForce — Setup & Run
+
+Requirements
+- Node.js (LTS) + npm
+- Python 3.10.11 or Python 3.11
+- PostgreSQL running and backend .env configured
+
+------------------------------------------------------------
+1. ZForce FaceService (Python / FastAPI)
+------------------------------------------------------------
+Open PowerShell:
+
+cd "D:\Zahir-Boss-Task\Project ZForce\ZForce-FaceService"
+
+# (First time only) create venv + install deps
+py -m venv .venv
+.\.venv\Scripts\Activate.
+py -m pip install --upgrade pip
+py -m pip install -r requirements.txt
+
+# If you ever get tf_keras error:
+py -m pip install tf-keras
+
+# Run server
+py -m uvicorn main:app --host 0.0.0.0 --port 7001 --reload
+
+Health check:
+http://localhost:7001/health
+
+
+
+#1.2 Run FaceService (every time)
+
+1. Go to folder:
+
+2. Activate venv:
+powershell
+
+.\.venv\Scripts\Activate.
+
+3. Run server (Dev mode / auto reload):
+
+py -m uvicorn main:app --host 0.0.0.0 --port 7001 --reload
+
+
+
+Run server (Production style / no reload):
+py -m uvicorn main:app --host 0.0.0.0 --port 7001
+
+Health check:
+
+* Open: `http://localhost:7001/health`
+
+------------------------------------------------------------
+2. Backend API (Node.js / Express)
+------------------------------------------------------------
+Open a new terminal:
+
+cd backend
+
+# (First time only)
+npm install
+
+# Run
+npm run dev
+
+
+------------------------------------------------------------
+3. Web Frontend (React)
+------------------------------------------------------------
+Open a new terminal:
+
+cd web-app
+
+# (First time only)
+npm install
+
+# Run
+npm run dev
+
+
+------------------------------------------------------------
+4. Mobile App (Expo)
+------------------------------------------------------------
+Open a new terminal:
+
+cd zforce-mobile-app
+
+# (First time only)
+npm install
+
+# Run
+npx expo start
