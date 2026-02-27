@@ -51,6 +51,12 @@ Health check:
 
 * Open: `http://localhost:7001/health`
 
+From git bash
+-------------
+source .venv/Scripts/activate
+
+py -m uvicorn main:app --host 0.0.0.0 --port 7001
+
 ------------------------------------------------------------
 2. Backend API (Node.js / Express)
 ------------------------------------------------------------
