@@ -1,82 +1,3 @@
-// const attendanceService = require("../services/attendance.service");
-
-// const pickLatLng = (body) => {
-//   const lat = body?.lat ?? body?.latitude ?? null;
-//   const lng = body?.lng ?? body?.longitude ?? null;
-//   return { lat, lng };
-// };
-
-// exports.punchIn = async (req, res, next) => {
-//   try {
-//     const userId = req.user.id;
-//     const { lat, lng } = pickLatLng(req.body);
-
-//     const attendance = await attendanceService.punchIn(userId, { lat, lng });
-
-//     return res.status(201).json({
-//       message: "Punch in successful",
-//       data: attendance,
-//     });
-//   } catch (error) {
-//     next(error);
-//   }
-// };
-
-// exports.punchOut = async (req, res, next) => {
-//   try {
-//     const userId = req.user.id;
-//     const { lat, lng } = pickLatLng(req.body);
-
-//     const attendance = await attendanceService.punchOut(userId, { lat, lng });
-
-//     return res.status(200).json({
-//       message: "Punch out successful",
-//       data: attendance,
-//     });
-//   } catch (error) {
-//     next(error);
-//   }
-// };
-
-// exports.getTodayAttendance = async (req, res, next) => {
-//   try {
-//     const userId = req.user.id;
-
-//     const attendance = await attendanceService.getTodayAttendance(userId);
-
-//     return res.status(200).json({
-//       data: attendance,
-//     });
-//   } catch (error) {
-//     next(error);
-//   }
-// };
-
-// exports.getAttendanceReport = async (req, res, next) => {
-//   try {
-//     const { fromDate, toDate, userId, page, limit } = req.query;
-
-//     const result = await attendanceService.getAttendanceReport({
-//       fromDate,
-//       toDate,
-//       userId,
-//       page,
-//       limit,
-//     });
-
-//     return res.status(200).json(result);
-//   } catch (error) {
-//     next(error);
-//   }
-// };
-
-
-
-
-
-
-
-
 const fs = require("fs");
 const attendanceService = require("../services/attendance.service");
 const { User } = require("../models");
@@ -88,6 +9,7 @@ const pickLatLng = (body) => {
   return { lat, lng };
 };
 
+// verify face embedding
 async function verifyFaceOrThrow(userId, file) {
   const user = await User.findByPk(userId);
   if (!user?.faceEnrolled || !user.faceEmbedding) throw new Error("FACE_NOT_ENROLLED");
@@ -127,7 +49,7 @@ exports.punchIn = async (req, res, next) => {
     // await verifyFaceOrThrow(userId, req.file.path);
     await verifyFaceOrThrow(userId, req.file);
 
-    // ✅ delete daily photo (no storage)
+    // delete daily photo (no storage)
     safeUnlink(req.file.path);
 
     const attendance = await attendanceService.punchIn(userId, {
@@ -155,7 +77,7 @@ exports.punchOut = async (req, res, next) => {
     // await verifyFaceOrThrow(userId, req.file.path);
     await verifyFaceOrThrow(userId, req.file);
 
-    // ✅ delete daily photo (no storage)
+    // delete daily photo (no storage)
     safeUnlink(req.file.path);
 
     const attendance = await attendanceService.punchOut(userId, {

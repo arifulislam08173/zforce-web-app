@@ -1,6 +1,6 @@
 const multer = require("multer");
 
-// In-memory upload (no disk write)
+// In-memory upload
 const storage = multer.memoryStorage();
 
 module.exports = multer({
