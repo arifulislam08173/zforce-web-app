@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useContext } from "react";
+import React, { useEffect, useState, useContext, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../api/api";
 import Loader from "../../components/Common/Loader";
@@ -16,23 +16,16 @@ const StatusBadge = ({ status }) => {
     s === "COMPLETED"
       ? "badge badge-completed"
       : s === "CANCELLED"
-        ? "badge badge-cancelled"
-        : "badge badge-pending";
+      ? "badge badge-cancelled"
+      : "badge badge-pending";
   return <span className={cls}>{s}</span>;
 };
 
-const IconButton = ({ title, onClick, variant = "default", children }) => {
-  return (
-    <button
-      type="button"
-      className={`icon-btn ${variant}`}
-      title={title}
-      onClick={onClick}
-    >
-      {children}
-    </button>
-  );
-};
+const IconButton = ({ title, onClick, variant = "default", children }) => (
+  <button type="button" className={`icon-btn ${variant}`} title={title} onClick={onClick}>
+    {children}
+  </button>
+);
 
 const OrderViewModal = ({ open, orderId, onClose, onEdit }) => {
   const [loading, setLoading] = useState(false);
@@ -60,15 +53,18 @@ const OrderViewModal = ({ open, orderId, onClose, onEdit }) => {
 
   if (!open) return null;
 
-  // const orderNo = order?.orderNumber || order?.orderNo || orderId;
-
   const items = order?.items || [];
-  const computedTotal = items.reduce(
+  const computedApprovedTotal = items.reduce(
     (sum, it) =>
-      sum + Number(it.total ?? Number(it.price) * Number(it.quantity) ?? 0),
-    0,
+      sum + Number(it.total ?? (Number(it.price ?? 0) * Number(it.approvedQuantity ?? 0))),
+    0
   );
-  const total = order?.totalAmount ?? computedTotal;
+  const computedRequestTotal = items.reduce(
+    (sum, it) => sum + Number(it.price ?? 0) * Number(it.quantity ?? 0),
+    0
+  );
+  const approvedTotal = order?.totalAmount ?? computedApprovedTotal;
+  const requestTotal = order?.requestTotalAmount ?? computedRequestTotal;
 
   return (
     <div className="modal-overlay" onMouseDown={onClose}>
@@ -76,33 +72,20 @@ const OrderViewModal = ({ open, orderId, onClose, onEdit }) => {
         <div className="modal-header">
           <div className="modal-head-left">
             <div className="modal-title">Order Details</div>
-            {/* <div className="modal-subtitle">{orderId}</div> */}
             <div className="modal-subtitle">
-              {loading ? (
-                "Loading…"
-              ) : order?.orderNumber ? (
-                <>
-                  Order No: <b>{order.orderNumber}</b>
-                </>
-              ) : (
-                "-"
-              )}
+              {loading ? "Loading…" : order?.orderNumber ? <>Order No: <b>{order.orderNumber}</b></> : "-"}
             </div>
           </div>
-
           <div className="modal-head-right">
             <button
               className="btn-secondary"
               type="button"
               onClick={async () => {
                 try {
-                  const res = await api.get(`/orders/${orderId}/invoice.pdf`, {
-                    responseType: "blob",
-                  });
+                  const res = await api.get(`/orders/${orderId}/invoice.pdf`, { responseType: "blob" });
                   const url = window.URL.createObjectURL(res.data);
                   const a = document.createElement("a");
                   a.href = url;
-                  // a.download = `invoice-${orderId}.pdf`;
                   const fileNo = order?.orderNumber || orderId;
                   a.download = `invoice-${fileNo}.pdf`;
                   document.body.appendChild(a);
@@ -110,21 +93,13 @@ const OrderViewModal = ({ open, orderId, onClose, onEdit }) => {
                   a.remove();
                   window.URL.revokeObjectURL(url);
                 } catch (e) {
-                  alert(
-                    e?.response?.data?.message || "Invoice download failed",
-                  );
+                  alert(e?.response?.data?.message || "Invoice download failed");
                 }
               }}
             >
               Download Invoice (PDF)
             </button>
-
-            <button
-              className="icon-btn modal-close-btn"
-              type="button"
-              onClick={onClose}
-              title="Close"
-            >
+            <button className="icon-btn modal-close-btn" type="button" onClick={onClose} title="Close">
               <FiX size={18} />
             </button>
           </div>
@@ -146,18 +121,14 @@ const OrderViewModal = ({ open, orderId, onClose, onEdit }) => {
                   <div className="k">Customer</div>
                   <div className="v">
                     {order.customer?.name || "-"}
-                    {order.customer?.phone ? (
-                      <span className="muted"> ({order.customer.phone})</span>
-                    ) : null}
+                    {order.customer?.phone ? <span className="muted"> ({order.customer.phone})</span> : null}
                   </div>
                 </div>
-
                 <div className="kv">
                   <div className="k">User</div>
                   <div className="v">{order.user?.name || "-"}</div>
                 </div>
               </div>
-
               <div className="modal-ordercard">
                 <div className="kv">
                   <div className="k">Date</div>
@@ -171,7 +142,6 @@ const OrderViewModal = ({ open, orderId, onClose, onEdit }) => {
                 </div>
               </div>
             </div>
-
             {order.notes ? (
               <div className="modal-notes">
                 <div className="k">Notes</div>
@@ -180,7 +150,6 @@ const OrderViewModal = ({ open, orderId, onClose, onEdit }) => {
                 </div>
               </div>
             ) : null}
-
             <div className="modal-table-wrap">
               <table className="table modal-table">
                 <thead>
@@ -188,6 +157,7 @@ const OrderViewModal = ({ open, orderId, onClose, onEdit }) => {
                     <th>Product</th>
                     <th>SKU</th>
                     <th style={{ textAlign: "right" }}>Qty</th>
+                    <th style={{ textAlign: "right" }}>Approved Qty</th>
                     <th style={{ textAlign: "right" }}>Price</th>
                     <th style={{ textAlign: "right" }}>Line Total</th>
                   </tr>
@@ -198,17 +168,16 @@ const OrderViewModal = ({ open, orderId, onClose, onEdit }) => {
                       <td>{it.product?.name || it.productId}</td>
                       <td>{it.product?.sku || "-"}</td>
                       <td style={{ textAlign: "right" }}>{it.quantity}</td>
+                      <td style={{ textAlign: "right" }}>{it.approvedQuantity ?? it.quantity}</td>
                       <td style={{ textAlign: "right" }}>{money(it.price)}</td>
                       <td style={{ textAlign: "right" }}>
-                        {money(
-                          it.total ?? Number(it.price) * Number(it.quantity),
-                        )}
+                        {money(it.total ?? Number(it.price ?? 0) * Number(it.approvedQuantity ?? it.quantity ?? 0))}
                       </td>
                     </tr>
                   ))}
                   {!items.length ? (
                     <tr>
-                      <td colSpan={5} className="empty">
+                      <td colSpan={6} className="empty">
                         No items found
                       </td>
                     </tr>
@@ -216,18 +185,13 @@ const OrderViewModal = ({ open, orderId, onClose, onEdit }) => {
                 </tbody>
               </table>
             </div>
-
             <div className="modal-footer">
               <div className="modal-total">
-                Total: <span>{money(total)}</span>
+                <div>Request Total: <span>{money(requestTotal)}</span></div>
+                <div>Approved Total: <span>{money(approvedTotal)}</span></div>
               </div>
-
               <div className="modal-actions">
-                <button
-                  className="btn-secondary"
-                  type="button"
-                  onClick={onClose}
-                >
+                <button className="btn-secondary" type="button" onClick={onClose}>
                   Close
                 </button>
                 <button className="btn-primary" type="button" onClick={onEdit}>
@@ -247,77 +211,67 @@ const OrderViewModal = ({ open, orderId, onClose, onEdit }) => {
 const Order = () => {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
-
   const role = String(user?.role || "").toUpperCase();
   const isAdminManager = role === "ADMIN" || role === "MANAGER";
 
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState([]);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 10,
-    total: 0,
-    totalPages: 1,
-  });
-
-  // filters
+  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
-
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-
   const [userId, setUserId] = useState("");
   const [customerId, setCustomerId] = useState("");
-
-  // dropdowns (admin/manager)
   const [users, setUsers] = useState([]);
   const [customers, setCustomers] = useState([]);
-
-  // view modal
   const [viewId, setViewId] = useState("");
   const [viewOpen, setViewOpen] = useState(false);
 
-  const fetchDropdowns = async () => {
+  const getQtySummary = (items = []) =>
+    items.reduce(
+      (acc, it) => {
+        acc.requested += Number(it.quantity || 0);
+        acc.approved += Number(it.approvedQuantity ?? it.quantity ?? 0);
+        return acc;
+      },
+      { requested: 0, approved: 0 }
+    );
+
+  const fetchDropdowns = useCallback(async () => {
     if (!isAdminManager) return;
-    const [uRes, cRes] = await Promise.all([
-      api.get("/users/dropdown"),
-      api.get("/customers/dropdown"),
-    ]);
+    const [uRes, cRes] = await Promise.all([api.get("/users/dropdown"), api.get("/customers/dropdown")]);
     setUsers(uRes.data || []);
     setCustomers(cRes.data || []);
-  };
+  }, [isAdminManager]);
 
-  const fetchOrders = async (page = 1, limit = pagination.limit) => {
-    try {
-      setLoading(true);
+  const fetchOrders = useCallback(
+    async (page = 1, limit = pagination.limit) => {
+      try {
+        setLoading(true);
+        const params = new URLSearchParams();
+        params.set("page", String(page));
+        params.set("limit", String(limit));
+        if (status) params.set("status", status);
+        if (q.trim()) params.set("q", q.trim());
+        if (fromDate) params.set("fromDate", fromDate);
+        if (toDate) params.set("toDate", toDate);
+        if (isAdminManager && userId) params.set("userId", userId);
+        if (customerId) params.set("customerId", customerId);
 
-      const params = new URLSearchParams();
-      params.set("page", String(page));
-      params.set("limit", String(limit));
-
-      if (status) params.set("status", status);
-      if (q.trim()) params.set("q", q.trim());
-
-      if (fromDate) params.set("fromDate", fromDate);
-      if (toDate) params.set("toDate", toDate);
-
-      if (isAdminManager && userId) params.set("userId", userId);
-      if (customerId) params.set("customerId", customerId);
-
-      const res = await api.get(`/orders?${params.toString()}`);
-      setOrders(res.data?.data || []);
-      setPagination(
-        res.data?.pagination || { page, limit, total: 0, totalPages: 1 },
-      );
-    } catch (err) {
-      console.error(err);
-      setOrders([]);
-      setPagination({ page: 1, limit, total: 0, totalPages: 1 });
-    } finally {
-      setLoading(false);
-    }
-  };
+        const res = await api.get(`/orders?${params.toString()}`);
+        setOrders(res.data?.data || []);
+        setPagination(res.data?.pagination || { page, limit, total: 0, totalPages: 1 });
+      } catch (err) {
+        console.error(err);
+        setOrders([]);
+        setPagination({ page: 1, limit, total: 0, totalPages: 1 });
+      } finally {
+        setLoading(false);
+      }
+    },
+    [pagination.limit, status, q, fromDate, toDate, isAdminManager, userId, customerId]
+  );
 
   useEffect(() => {
     const init = async () => {
@@ -325,8 +279,7 @@ const Order = () => {
       await fetchOrders(1, pagination.limit);
     };
     init();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchDropdowns, fetchOrders, pagination.limit]);
 
   const onSearch = (e) => {
     e.preventDefault();
@@ -343,7 +296,6 @@ const Order = () => {
   const onDelete = async (id) => {
     const ok = window.confirm("Are you sure you want to delete this order?");
     if (!ok) return;
-
     try {
       await api.delete(`/orders/${id}`);
       fetchOrders(pagination.page, pagination.limit);
@@ -360,16 +312,9 @@ const Order = () => {
       <div className="order-header">
         <div>
           <h2 className="order-title">Orders</h2>
-          <p className="order-subtitle">
-            Manage orders, items and stock updates
-          </p>
+          <p className="order-subtitle">Manage requested quantity, approved quantity and stock updates</p>
         </div>
-
-        <button
-          className="btn-primary"
-          type="button"
-          onClick={() => navigate("/order/add")}
-        >
+        <button className="btn-primary" type="button" onClick={() => navigate("/order/add")}>
           + Create Order
         </button>
       </div>
@@ -381,7 +326,6 @@ const Order = () => {
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search (customer / user / phone / order id)"
         />
-
         <input
           className="input of-input of-date"
           type="date"
@@ -389,7 +333,6 @@ const Order = () => {
           onChange={(e) => setFromDate(e.target.value)}
           title="From date"
         />
-
         <input
           className="input of-input of-date"
           type="date"
@@ -397,14 +340,9 @@ const Order = () => {
           onChange={(e) => setToDate(e.target.value)}
           title="To date"
         />
-
         {isAdminManager ? (
           <>
-            <select
-              className="input of-input of-select"
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-            >
+            <select className="input of-input of-select" value={userId} onChange={(e) => setUserId(e.target.value)}>
               <option value="">All users</option>
               {users.map((u) => (
                 <option key={u.id} value={u.id}>
@@ -412,7 +350,6 @@ const Order = () => {
                 </option>
               ))}
             </select>
-
             <select
               className="input of-input of-select"
               value={customerId}
@@ -427,18 +364,12 @@ const Order = () => {
             </select>
           </>
         ) : null}
-
-        <select
-          className="input of-input of-select"
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-        >
+        <select className="input of-input of-select" value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="">All status</option>
           <option value="PENDING">PENDING</option>
           <option value="COMPLETED">COMPLETED</option>
           <option value="CANCELLED">CANCELLED</option>
         </select>
-
         <button className="btn-secondary of-btn" type="submit">
           Search
         </button>
@@ -453,51 +384,50 @@ const Order = () => {
                 <th>Date</th>
                 <th>User</th>
                 <th>Customer</th>
-                <th>Phone</th>
-                <th>Total</th>
+                <th>Requested Qty</th>
+                <th>Approved Qty</th>
+                <th>Request Total</th>
+                <th>Approved Total</th>
                 <th>Status</th>
                 <th className="th-actions">Actions</th>
               </tr>
             </thead>
             <tbody>
               {orders.length ? (
-                orders.map((o, index) => (
-                  <tr key={o.id || index}>
-                    <td>
-                      {(pagination.page - 1) * pagination.limit + index + 1}
-                    </td>
-                    <td>{formatDate(o.date)}</td>
-                    <td>{o.user?.name || "-"}</td>
-                    <td>{o.customer?.name || "-"}</td>
-                    <td>{o.customer?.phone || "-"}</td>
-                    <td>{money(o.totalAmount)}</td>
-                    <td>
-                      <StatusBadge status={o.status} />
-                    </td>
-                    <td className="actions">
-                      <div className="action-row">
-                        <IconButton title="View" onClick={() => openView(o.id)}>
-                          <FiEye size={18} />
-                        </IconButton>
-
-                        <IconButton title="Edit" onClick={() => goEdit(o.id)}>
-                          <FiEdit2 size={18} />
-                        </IconButton>
-
-                        <IconButton
-                          title="Delete"
-                          variant="danger"
-                          onClick={() => onDelete(o.id)}
-                        >
-                          <FiTrash2 size={18} />
-                        </IconButton>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                orders.map((o, index) => {
+                  const qty = getQtySummary(o.items || []);
+                  return (
+                    <tr key={o.id || index}>
+                      <td>{(pagination.page - 1) * pagination.limit + index + 1}</td>
+                      <td>{formatDate(o.date)}</td>
+                      <td>{o.user?.name || "-"}</td>
+                      <td>{o.customer?.name || "-"}</td>
+                      <td>{qty.requested}</td>
+                      <td>{qty.approved}</td>
+                      <td>{money(o.requestTotalAmount)}</td>
+                      <td>{money(o.totalAmount)}</td>
+                      <td>
+                        <StatusBadge status={o.status} />
+                      </td>
+                      <td className="actions">
+                        <div className="action-row">
+                          <IconButton title="View" onClick={() => openView(o.id)}>
+                            <FiEye size={18} />
+                          </IconButton>
+                          <IconButton title="Edit" onClick={() => goEdit(o.id)}>
+                            <FiEdit2 size={18} />
+                          </IconButton>
+                          <IconButton title="Delete" variant="danger" onClick={() => onDelete(o.id)}>
+                            <FiTrash2 size={18} />
+                          </IconButton>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
-                  <td colSpan="8" className="empty">
+                  <td colSpan="10" className="empty">
                     No orders found
                   </td>
                 </tr>

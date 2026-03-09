@@ -27,6 +27,7 @@ const reportRoutes = require("./routes/report.routes");
 const paymentRoutes = require("./routes/payment.routes");
 const pdfRoutes = require("./routes/pdf.routes");
 const face = require("./routes/face.routes") ;
+const adminLogRoutes = require('./routes/adminLog.routes');
 
 const app = express();
 
@@ -66,6 +67,7 @@ app.use("/api/pdf", authenticate, pdfRoutes);
 
 
 
+app.use('/api/admin-logs', adminLogRoutes);
 app.use("/api/face", face);
 
 const path = require("path");

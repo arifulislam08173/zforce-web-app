@@ -17,6 +17,7 @@ import {
   FiBarChart2,
   FiPieChart,
   FiChevronDown,
+  FiClipboard,
 } from "react-icons/fi";
 
 import { AuthContext } from "../../context/AuthContext";
@@ -63,7 +64,8 @@ const Sidebar = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
       { name: "Company", path: "/company", icon: <FiBriefcase /> },
 
       { name: "Company Assign", path: "/assignments/user-company", icon: <FiUsers /> },
-      { name: "Customer Assign", path: "/assignments/customers", icon: <FiMap /> }
+      { name: "Customer Assign", path: "/assignments/customers", icon: <FiMap /> },
+      { name: "Admin Logs", path: "/admin-logs", icon: <FiClipboard /> }
     );
 
     return items;

@@ -33,6 +33,7 @@ import Reports from "../pages/Reports/Reports";
 
 import UserCompanyAssignment from "../pages/Assignments/UserCompanyAssignment";
 import SalesReport from "../pages/Reports/SalesReport";
+import AdminLog from '../pages/AdminLog/AdminLog';
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useContext(AuthContext);
@@ -206,6 +207,14 @@ const AppRoutes = () => (
     </RoleRoute>
   }
 />
+        <Route
+          path="admin-logs"
+          element={
+            <RoleRoute roles={["ADMIN", "MANAGER"]}>
+              <AdminLog />
+            </RoleRoute>
+          }
+        />
       </Route>
 
       <Route path="*" element={<Navigate to="/" />} />

@@ -1,29 +1,31 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import api from "../../api/api";
 import Loader from "../../components/Common/Loader";
+import { AuthContext } from "../../context/AuthContext";
 import "./order.css";
 
-const emptyItem = { productId: "", quantity: 1, price: 0 };
+const emptyItem = { id: "", productId: "", quantity: 1, approvedQuantity: 0, price: 0 };
 
 const OrderForm = () => {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
+  const { user } = useContext(AuthContext);
+
+  const role = String(user?.role || "").toUpperCase();
+  const canApprove = role === "ADMIN" || role === "MANAGER";
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
-
   const [form, setForm] = useState({
     customerId: "",
     date: new Date().toISOString().slice(0, 10),
     status: "PENDING",
     notes: "",
   });
-
   const [items, setItems] = useState([{ ...emptyItem }]);
   const [error, setError] = useState("");
 
@@ -33,30 +35,38 @@ const OrderForm = () => {
     return map;
   }, [products]);
 
-  const totalAmount = useMemo(() => {
+  const requestTotalAmount = useMemo(() => {
     return items.reduce(
-      (sum, it) => sum + Number(it.quantity || 0) * Number(it.price || 0),
+      (sum, it) => sum + Number(it.quantity ?? 0) * Number(it.price ?? 0),
       0
     );
   }, [items]);
 
-  // customerId/productId are strings, not numbers
+  const approvedTotalAmount = useMemo(() => {
+    return items.reduce(
+      (sum, it) => sum + Number(it.approvedQuantity ?? 0) * Number(it.price ?? 0),
+      0
+    );
+  }, [items]);
+
   const canSubmit = useMemo(() => {
     const hasCustomer = Boolean(form.customerId);
     const hasAtLeastOneProduct = items.some((it) => Boolean(it.productId));
     return hasCustomer && hasAtLeastOneProduct;
   }, [form.customerId, items]);
 
-  const loadDropdowns = async () => {
+  const loadDropdowns = useCallback(async () => {
     const [cRes, pRes] = await Promise.all([
       api.get("/customers/dropdown"),
       api.get("/products/dropdown"),
     ]);
     setCustomers(cRes.data || []);
     setProducts(pRes.data || []);
-  };
+  }, []);
 
-  const loadOrder = async () => {
+  const loadOrder = useCallback(async () => {
+    if (!id) return;
+
     const res = await api.get(`/orders/${id}`);
     const o = res.data;
 
@@ -67,15 +77,16 @@ const OrderForm = () => {
       notes: o.notes || "",
     });
 
-    const loadedItems =
-      (o.items || []).map((it) => ({
-        productId: String(it.productId),
-        quantity: Number(it.quantity || 1),
-        price: Number(it.price || 0),
-      })) || [];
+    const loadedItems = (o.items || []).map((it) => ({
+      id: it.id || "",
+      productId: String(it.productId),
+      quantity: Number(it.quantity || 1),
+      approvedQuantity: Number(it.approvedQuantity ?? 0),
+      price: Number(it.price || 0),
+    }));
 
     setItems(loadedItems.length ? loadedItems : [{ ...emptyItem }]);
-  };
+  }, [id]);
 
   useEffect(() => {
     const init = async () => {
@@ -91,28 +102,33 @@ const OrderForm = () => {
         setLoading(false);
       }
     };
+
     init();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [isEdit, loadDropdowns, loadOrder]);
 
   const setItemField = (idx, field, value) => {
     setItems((prev) => {
       const next = [...prev];
       next[idx] = { ...next[idx], [field]: value };
 
-      // Auto-fill price when product changes
       if (field === "productId") {
         const p = productMap.get(String(value));
         next[idx].price = p ? Number(p.price || 0) : 0;
       }
 
-      // enforce min quantity
       if (field === "quantity") {
         const q = Math.max(1, Number(value || 1));
         next[idx].quantity = q;
+        if (canApprove && !isEdit) next[idx].approvedQuantity = q;
+        if (Number(next[idx].approvedQuantity || 0) > q) next[idx].approvedQuantity = q;
       }
 
-      // keep numeric price
+      if (field === "approvedQuantity") {
+        const maxQty = Number(next[idx].quantity || 0);
+        const aq = Math.max(0, Number(value || 0));
+        next[idx].approvedQuantity = Math.min(aq, maxQty);
+      }
+
       if (field === "price") {
         const pr = Number(value);
         next[idx].price = Number.isFinite(pr) ? pr : 0;
@@ -128,20 +144,21 @@ const OrderForm = () => {
 
   const validate = () => {
     if (!form.customerId) return "Customer is required";
-
-    // allow empty rows, but at least one selected product needed
     const hasAnyProduct = items.some((it) => Boolean(it.productId));
     if (!hasAnyProduct) return "Add at least one valid product item";
 
     for (const it of items) {
-      // if row has no product, ignore it
       if (!it.productId) continue;
-
       if (Number(it.quantity) <= 0) return "Quantity must be at least 1";
+      if (Number(it.approvedQuantity) < 0) return "Approved quantity cannot be negative";
+      if (Number(it.approvedQuantity) > Number(it.quantity)) {
+        return "Approved quantity cannot be greater than requested quantity";
+      }
       if (Number(it.price) < 0) return "Price cannot be negative";
 
       const p = productMap.get(String(it.productId));
-      if (p && Number(it.quantity) > Number(p.stock)) {
+      const stockToCheck = canApprove ? Number(it.approvedQuantity) : 0;
+      if (p && stockToCheck > Number(p.stock)) {
         return `Insufficient stock for ${p.name} (available: ${p.stock})`;
       }
     }
@@ -150,7 +167,6 @@ const OrderForm = () => {
 
   const onSubmit = async (e) => {
     e.preventDefault();
-
     const msg = validate();
     if (msg) {
       setError(msg);
@@ -160,28 +176,24 @@ const OrderForm = () => {
     setSaving(true);
     setError("");
 
-    // remove empty rows
     const cleanItems = items
       .filter((it) => Boolean(it.productId))
       .map((it) => ({
-        productId: String(it.productId), // keep UUID string
+        id: it.id || undefined,
+        productId: String(it.productId),
         quantity: Number(it.quantity),
+        approvedQuantity: Number(canApprove ? it.approvedQuantity : 0),
         price: Number(it.price),
       }));
 
-    if (cleanItems.length === 0) {
-      setSaving(false);
-      setError("Add at least one valid product item");
-      return;
-    }
-
     const payload = {
       order: {
-        customerId: String(form.customerId), // UUID string
+        customerId: String(form.customerId),
         date: form.date,
         status: form.status,
         notes: form.notes,
-        totalAmount, 
+        requestTotalAmount,
+        totalAmount: approvedTotalAmount,
       },
       items: cleanItems,
     };
@@ -189,7 +201,6 @@ const OrderForm = () => {
     try {
       if (isEdit) await api.put(`/orders/${id}`, payload);
       else await api.post("/orders", payload);
-
       navigate("/order");
     } catch (err) {
       console.error(err);
@@ -206,7 +217,11 @@ const OrderForm = () => {
       <div className="order-header">
         <div>
           <h2 className="order-title">{isEdit ? "Edit Order" : "Create Order"}</h2>
-          <p className="order-subtitle">Products affect stock automatically</p>
+          <p className="order-subtitle">
+            {canApprove && isEdit
+              ? "Requested quantity is read-only. Approved quantity controls stock and approved total."
+              : "Requested quantity creates a request total. Stock changes only after approval."}
+          </p>
         </div>
         <button className="btn-secondary" type="button" onClick={() => navigate("/order")}>
           Back
@@ -278,17 +293,19 @@ const OrderForm = () => {
           <table className="table">
             <thead>
               <tr>
-                <th style={{ width: "45%" }}>Product</th>
-                <th style={{ width: "15%" }}>Stock</th>
-                <th style={{ width: "15%" }}>Qty</th>
-                <th style={{ width: "15%" }}>Price</th>
+                <th style={{ width: canApprove && isEdit ? "32%" : "45%" }}>Product</th>
+                <th style={{ width: "12%" }}>Stock</th>
+                <th style={{ width: "14%" }}>Qty</th>
+                {canApprove && isEdit ? <th style={{ width: "14%" }}>Approved Qty</th> : null}
+                <th style={{ width: "14%" }}>Price</th>
                 <th style={{ width: "10%" }}></th>
               </tr>
             </thead>
             <tbody>
               {items.map((it, idx) => {
                 const p = productMap.get(String(it.productId));
-                const showRowError = it.productId && p && Number(it.quantity) > Number(p.stock);
+                const stockTarget = canApprove && isEdit ? Number(it.approvedQuantity) : Number(it.quantity);
+                const showRowError = it.productId && p && stockTarget > Number(p.stock);
 
                 return (
                   <tr key={idx}>
@@ -299,9 +316,9 @@ const OrderForm = () => {
                         onChange={(e) => setItemField(idx, "productId", e.target.value)}
                       >
                         <option value="">Select product</option>
-                        {products.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name} (SKU: {p.sku})
+                        {products.map((product) => (
+                          <option key={product.id} value={product.id}>
+                            {product.name} (SKU: {product.sku})
                           </option>
                         ))}
                       </select>
@@ -313,14 +330,27 @@ const OrderForm = () => {
                         type="number"
                         min="1"
                         value={it.quantity}
+                        disabled={canApprove && isEdit}
                         onChange={(e) => setItemField(idx, "quantity", e.target.value)}
                       />
-                      {showRowError ? (
-                        <div style={{ fontSize: 12, color: "#b42318", marginTop: 6 }}>
-                          Quantity exceeds stock
-                        </div>
-                      ) : null}
                     </td>
+                    {canApprove && isEdit ? (
+                      <td>
+                        <input
+                          className="input"
+                          type="number"
+                          min="0"
+                          max={it.quantity}
+                          value={it.approvedQuantity}
+                          onChange={(e) => setItemField(idx, "approvedQuantity", e.target.value)}
+                        />
+                        {showRowError ? (
+                          <div style={{ fontSize: 12, color: "#b42318", marginTop: 6 }}>
+                            Approved quantity exceeds stock
+                          </div>
+                        ) : null}
+                      </td>
+                    ) : null}
                     <td>
                       <input
                         className="input"
@@ -331,11 +361,7 @@ const OrderForm = () => {
                       />
                     </td>
                     <td className="actions">
-                      <button
-                        type="button"
-                        className="btn-link danger"
-                        onClick={() => removeRow(idx)}
-                      >
+                      <button type="button" className="btn-link danger" onClick={() => removeRow(idx)}>
                         Remove
                       </button>
                     </td>
@@ -347,10 +373,10 @@ const OrderForm = () => {
         </div>
 
         <div className="order-footer">
-          <div className="total">
-            Total: <span>{totalAmount.toFixed(2)}</span>
+          <div className="total" style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+            <div>Request Total: <span>{requestTotalAmount.toFixed(2)}</span></div>
+            <div>Approved Total: <span>{approvedTotalAmount.toFixed(2)}</span></div>
           </div>
-
           <button className="btn-primary" disabled={saving || !canSubmit}>
             {saving ? "Saving..." : isEdit ? "Update Order" : "Create Order"}
           </button>

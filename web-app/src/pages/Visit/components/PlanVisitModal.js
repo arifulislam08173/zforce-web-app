@@ -2,7 +2,16 @@ import React, { useEffect, useState } from "react";
 import api from "../../../api/api";
 import VModal from "./VModal";
 
-const PlanVisitModal = ({ open, onClose, onCreated, users, customers, hideUserSelect = false, fixedUserId = "", fixedUserName = "Me",}) => {
+const PlanVisitModal = ({
+  open,
+  onClose,
+  onCreated,
+  users,
+  customers,
+  hideUserSelect = false,
+  fixedUserId = "",
+  fixedUserName = "Me",
+}) => {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
 
@@ -21,18 +30,21 @@ const PlanVisitModal = ({ open, onClose, onCreated, users, customers, hideUserSe
 
     const d = new Date(Date.now() + 60 * 60 * 1000);
     const pad = (n) => String(n).padStart(2, "0");
-    const local = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(
-      d.getMinutes()
-    )}`;
+    const local = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+      d.getHours()
+    )}:${pad(d.getMinutes())}`;
 
-    setForm((f) => ({ ...f, userId: hideUserSelect ? String(fixedUserId || "") : f.userId, plannedAt: local }));
-  }, [open]);
+    setForm((f) => ({
+      ...f,
+      userId: hideUserSelect ? String(fixedUserId || "") : f.userId,
+      plannedAt: local,
+    }));
+  }, [open, hideUserSelect, fixedUserId]);
 
   const submit = async (e) => {
     e.preventDefault();
     setErr("");
 
-    // if (!form.userId) return setErr("User is required");
     if (!hideUserSelect && !form.userId) return setErr("User is required");
     if (!form.customerId) return setErr("Customer is required");
     if (!form.plannedAt) return setErr("Planned date & time is required");
@@ -46,7 +58,6 @@ const PlanVisitModal = ({ open, onClose, onCreated, users, customers, hideUserSe
         plannedAt: new Date(form.plannedAt).toISOString(),
         notes: form.notes || null,
       });
-
 
       onCreated?.();
       onClose?.();

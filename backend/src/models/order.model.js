@@ -24,6 +24,10 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.DATEONLY,
         allowNull: false,
       },
+      requestTotalAmount: {
+        type: DataTypes.FLOAT,
+        defaultValue: 0,
+      },
       totalAmount: {
         type: DataTypes.FLOAT,
         defaultValue: 0,
