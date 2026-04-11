@@ -5,6 +5,7 @@ numpy==1.26.4
 opencv-python==4.9.0.80
 deepface==0.0.93
 
-tensorflow==2.19.1
-tensorboard==2.19.0
-protobuf==4.25.8
+tensorflow==2.20.0
+tensorboard==2.20.0
+
+retina-face==0.0.17

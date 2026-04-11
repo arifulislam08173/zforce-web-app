@@ -7,8 +7,15 @@ module.exports = (sequelize, DataTypes) => {
     role: DataTypes.ENUM('ADMIN', 'MANAGER', 'FIELD'),
     isActive: { type: DataTypes.BOOLEAN, defaultValue: true },
     
+    faceEmbeddings: {
+      type: DataTypes.TEXT("long"),
+      allowNull: true,
+    },
+    faceEnrollMeta: {
+      type: DataTypes.TEXT("long"),
+      allowNull: true,
+    },
     faceEnrolled: { type: DataTypes.BOOLEAN, defaultValue: false },
-    faceEmbedding: { type: DataTypes.TEXT, allowNull: true },
     faceEnrollAt: { type: DataTypes.DATE, allowNull: true },
   }, { paranoid: true });
 };

@@ -2,65 +2,174 @@ const axios = require("axios");
 const FormData = require("form-data");
 const fs = require("fs");
 
-const FACE_BASE = process.env.FACE_SERVICE_URL || "http://localhost:7001";
+const FACE_API_URL = process.env.FACE_API_URL || "http://localhost:7001";
 
-async function postWithFile(url, file, extraFields = {}) {
+function appendFileToForm(form, fieldName, file) {
+  if (!file) {
+    throw new Error("INVALID_UPLOAD_FILE");
+  }
+
+  const filename = file.originalname || "upload.jpg";
+  const contentType = file.mimetype || "image/jpeg";
+
+  // Multer diskStorage
+  if (file.path) {
+    form.append(fieldName, fs.createReadStream(file.path), {
+      filename,
+      contentType,
+    });
+    return;
+  }
+
+  // Multer memoryStorage
+  if (file.buffer) {
+    form.append(fieldName, file.buffer, {
+      filename,
+      contentType,
+      knownLength: file.size || file.buffer.length,
+    });
+    return;
+  }
+
+  throw new Error("UPLOAD_FILE_HAS_NO_PATH_OR_BUFFER");
+}
+
+async function postWithFiles(path, fields = {}, files = [], timeout = 180000) {
   const form = new FormData();
 
-  // support diskStorage
-  if (file?.path) {
-    form.append("photo", fs.createReadStream(file.path), {
-      filename: file.originalname || "photo.jpg",
-      contentType: file.mimetype || "image/jpeg",
-    });
-  }
-  // support memoryStorage
-  else if (file?.buffer) {
-    form.append("photo", file.buffer, {
-      filename: file.originalname || "photo.jpg",
-      contentType: file.mimetype || "image/jpeg",
-    });
-  } else {
-    throw new Error("FACE_FILE_MISSING");
-  }
-
-  Object.entries(extraFields).forEach(([k, v]) => {
-    form.append(k, typeof v === "string" ? v : JSON.stringify(v));
+  Object.entries(fields).forEach(([key, value]) => {
+    form.append(key, typeof value === "string" ? value : JSON.stringify(value));
   });
 
-  const res = await axios.post(url, form, {
-    headers: form.getHeaders(),
-    timeout: 120000,
+  files.forEach(({ fieldName, file }) => {
+    appendFileToForm(form, fieldName, file);
   });
 
-  return res.data;
+  try {
+    const headers = form.getHeaders();
+
+    const contentLength = await new Promise((resolve, reject) => {
+      form.getLength((err, length) => {
+        if (err) return reject(err);
+        resolve(length);
+      });
+    });
+
+    if (Number.isFinite(contentLength)) {
+      headers["Content-Length"] = contentLength;
+    }
+
+    const res = await axios.post(`${FACE_API_URL}${path}`, form, {
+      headers,
+      timeout,
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
+    });
+
+    return res.data;
+  } catch (err) {
+    if (err.response?.data) {
+      const e = new Error(err.response.data.error || "FACE_SERVICE_ERROR");
+      e.details = err.response.data;
+      throw e;
+    }
+
+    if (err.code === "ECONNABORTED") {
+      const e = new Error("FACE_SERVICE_TIMEOUT");
+      e.details = { timeout, path };
+      throw e;
+    }
+
+    const e = new Error(err.message || "FACE_SERVICE_UNAVAILABLE");
+    e.details = { code: err.code };
+    throw e;
+  }
+}
+
+async function analyzeFromUpload(file) {
+  const result = await postWithFiles(
+    "/analyze",
+    {},
+    [{ fieldName: "photo", file }],
+    60000
+  );
+
+  if (!result?.ok) {
+    const e = new Error(result?.error || "FACE_ANALYZE_FAILED");
+    e.details = result;
+    throw e;
+  }
+
+  return result;
 }
 
 async function embedFromUpload(file) {
-  const data = await postWithFile(`${FACE_BASE}/embed`, file);
+  const result = await postWithFiles(
+    "/embed",
+    {},
+    [{ fieldName: "photo", file }],
+    90000
+  );
 
-  // Face emmbinding data
-  if (data?.ok === false) throw new Error(data?.error || "embed_failed");
-  if (!data?.embedding) throw new Error(data?.error || "embed_failed");
+  if (!result?.ok) {
+    const e = new Error(result?.error || "FACE_EMBED_FAILED");
+    e.details = result;
+    throw e;
+  }
 
-  return data.embedding;
+  return result;
 }
 
-async function verifyFromUpload(file, embedding) {
-  const data = await postWithFile(`${FACE_BASE}/verify`, file, { embedding });
+async function enrollMulti(files, labels = []) {
+  const safeFiles = (files || []).filter(Boolean).slice(0, 5);
 
-  if (data?.ok === false) throw new Error(data?.error || "verify_failed");
-  return data;
+  if (safeFiles.length < 3) {
+    const e = new Error("minimum_3_photos_required");
+    e.details = { count: safeFiles.length };
+    throw e;
+  }
+
+  const photoFiles = safeFiles.map((file) => ({
+    fieldName: "photos",
+    file,
+  }));
+
+  const result = await postWithFiles(
+    "/enroll-multi",
+    { labels: labels || [] },
+    photoFiles,
+    240000
+  );
+
+  if (!result?.ok) {
+    const e = new Error(result?.error || "FACE_ENROLL_FAILED");
+    e.details = result;
+    throw e;
+  }
+
+  return result;
 }
 
-async function embedFromFile(filePath) {
-  if (!filePath) throw new Error("FACE_FILE_MISSING");
-  const fakeMulter = { path: filePath, originalname: "photo.jpg", mimetype: "image/jpeg" };
-  return embedFromUpload(fakeMulter);
+async function verifyFromUpload(file, embeddings) {
+  const result = await postWithFiles(
+    "/verify",
+    { embeddings },
+    [{ fieldName: "photo", file }],
+    90000
+  );
+
+  if (!result?.ok) {
+    const e = new Error(result?.error || "FACE_VERIFY_FAILED");
+    e.details = result;
+    throw e;
+  }
+
+  return result;
 }
 
 module.exports = {
+  analyzeFromUpload,
   embedFromUpload,
+  enrollMulti,
   verifyFromUpload,
-  embedFromFile,
 };

@@ -1,8 +1,14 @@
 const router = require("express").Router();
 const { authenticate, authorize } = require("../middlewares/auth.middleware");
-const uploadFace = require("../middlewares/uploadFace.middleware");
+const uploadFaceMemory = require("../middlewares/uploadFaceMemory.middleware");
 const controller = require("../controllers/face.controller");
 
-router.post("/enroll", authenticate, authorize("FIELD"), uploadFace.single("photo"), controller.enroll);
+router.post(
+  "/enroll-multi",
+  authenticate,
+  authorize("FIELD", "ADMIN", "MANAGER"),
+  uploadFaceMemory.array("photos", 10),
+  controller.enrollMulti
+);
 
 module.exports = router;

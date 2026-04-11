@@ -47,4 +47,22 @@ const errorHandler = (err, req, res, next) => {
   });
 };
 
+
+module.exports = (err, req, res, next) => {
+  if (err?.name === "MulterError") {
+    if (err.code === "LIMIT_FILE_COUNT") {
+      return res.status(400).json({ message: "Too many photos uploaded" });
+    }
+
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(400).json({ message: "Photo size is too large" });
+    }
+
+    return res.status(400).json({ message: err.message || "Upload error" });
+  }
+
+  console.error(err);
+  return res.status(500).json({ message: err.message || "Internal server error" });
+};
+
 module.exports = errorHandler;

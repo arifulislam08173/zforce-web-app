@@ -1,53 +1,81 @@
-const { User } = require("../models");
 const faceLocal = require("../services/faceLocal.service");
-const fs = require("fs");
+const { User } = require("../models");
 
-function safeUnlink(filePath) {
-  try {
-    if (filePath && fs.existsSync(filePath)) fs.unlinkSync(filePath);
-  } catch (_) {}
-}
-
-exports.enroll = async (req, res, next) => {
-  console.log("ENROLL content-type:", req.headers["content-type"]);
-  console.log("ENROLL req.file:", req.file);
-  console.log("ENROLL body keys:", Object.keys(req.body || {}));
-
-  const tmpPath = req?.file?.path;
-
+exports.enrollMulti = async (req, res, next) => {
   try {
     const userId = req.user.id;
+    const files = Array.isArray(req.files) ? req.files : [];
 
-    if (!req.file) return res.status(400).json({ message: "Face photo is required" });
+    if (files.length < 3) {
+      return res.status(400).json({
+        code: "MINIMUM_3_PHOTOS_REQUIRED",
+        message: "At least 3 face photos are required.",
+      });
+    }
 
-    const user = await User.findByPk(userId);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    const labels = (() => {
+      try {
+        if (!req.body.labels) return [];
+        return Array.isArray(req.body.labels)
+          ? req.body.labels
+          : JSON.parse(req.body.labels);
+      } catch {
+        return [];
+      }
+    })();
 
-    // embedFromUpload and supports file
-    const embedding = await faceLocal.embedFromUpload(req.file);
+    const result = await faceLocal.enrollMulti(files, labels);
+    const embeddings = result.samples.map((s) => s.embedding);
 
-    user.faceEnrolled = true;
-    user.faceEmbedding = JSON.stringify(embedding);
-    user.faceEnrollAt = new Date();
-    await user.save();
+    await User.update(
+      {
+        faceEmbeddings: JSON.stringify(embeddings),
+        faceEnrolled: true,
+      },
+      { where: { id: userId } }
+    );
 
-    return res.json({
-      message: "Face enrolled successfully",
-      data: { faceEnrolled: true },
+    return res.status(200).json({
+      code: "FACE_ENROLL_SUCCESS",
+      message: "Face enrolled successfully.",
+      data: {
+        acceptedCount: result.accepted_count,
+        rejectedCount: result.rejected_count,
+        rejected: result.rejected,
+      },
     });
   } catch (e) {
-    console.error("FACE ENROLL ERROR:", e);
+    const msg = String(e.message || "");
 
-    if (String(e.message).includes("no_face_detected")) {
-      return res.status(400).json({ message: "Face not detected. Try again with good light." });
+    if (msg === "FACE_SERVICE_TIMEOUT") {
+      return res.status(504).json({
+        code: "FACE_SERVICE_TIMEOUT",
+        message: "Face enrollment took too long. Please retry with 3 clear photos only.",
+      });
     }
 
-    if (String(e.message).includes("FACE_FILE_MISSING")) {
-      return res.status(400).json({ message: "Face photo is required" });
+    if (msg === "minimum_3_photos_required") {
+      return res.status(400).json({
+        code: "MINIMUM_3_PHOTOS_REQUIRED",
+        message: "At least 3 face photos are required.",
+      });
     }
 
-    next(e);
-  } finally {
-    safeUnlink(tmpPath);
+    if (msg === "not_enough_good_samples") {
+      return res.status(400).json({
+        code: "NOT_ENOUGH_GOOD_SAMPLES",
+        message: "Not enough clear face samples. Use good light and keep face steady.",
+        details: e.details || null,
+      });
+    }
+
+    if (msg === "INVALID_UPLOAD_FILE" || msg === "UPLOAD_FILE_HAS_NO_PATH_OR_BUFFER") {
+      return res.status(400).json({
+        code: "INVALID_UPLOAD_FILE",
+        message: "Uploaded image data is invalid. Please capture the photos again.",
+      });
+    }
+
+    return next(e);
   }
 };
