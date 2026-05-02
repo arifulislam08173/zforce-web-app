@@ -9,3 +9,5 @@ tensorflow==2.20.0
 tensorboard==2.20.0
 
 retina-face==0.0.17
+
+python-dotenv==1.0.1

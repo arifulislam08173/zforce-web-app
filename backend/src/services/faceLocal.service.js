@@ -2,7 +2,7 @@ const axios = require("axios");
 const FormData = require("form-data");
 const fs = require("fs");
 
-const FACE_API_URL = process.env.FACE_API_URL || "http://localhost:7001";
+const FACE_API_URL = process.env.FACE_SERVICE_URL || "http://localhost:7001";
 
 function appendFileToForm(form, fieldName, file) {
   if (!file) {
@@ -12,7 +12,6 @@ function appendFileToForm(form, fieldName, file) {
   const filename = file.originalname || "upload.jpg";
   const contentType = file.mimetype || "image/jpeg";
 
-  // Multer diskStorage
   if (file.path) {
     form.append(fieldName, fs.createReadStream(file.path), {
       filename,
@@ -21,7 +20,6 @@ function appendFileToForm(form, fieldName, file) {
     return;
   }
 
-  // Multer memoryStorage
   if (file.buffer) {
     form.append(fieldName, file.buffer, {
       filename,
@@ -34,7 +32,7 @@ function appendFileToForm(form, fieldName, file) {
   throw new Error("UPLOAD_FILE_HAS_NO_PATH_OR_BUFFER");
 }
 
-async function postWithFiles(path, fields = {}, files = [], timeout = 180000) {
+async function postWithFiles(path, fields = {}, files = [], timeout = 20000) {
   const form = new FormData();
 
   Object.entries(fields).forEach(([key, value]) => {
@@ -91,7 +89,7 @@ async function analyzeFromUpload(file) {
     "/analyze",
     {},
     [{ fieldName: "photo", file }],
-    60000
+    12000
   );
 
   if (!result?.ok) {
@@ -108,7 +106,7 @@ async function embedFromUpload(file) {
     "/embed",
     {},
     [{ fieldName: "photo", file }],
-    90000
+    15000
   );
 
   if (!result?.ok) {
@@ -121,7 +119,7 @@ async function embedFromUpload(file) {
 }
 
 async function enrollMulti(files, labels = []) {
-  const safeFiles = (files || []).filter(Boolean).slice(0, 5);
+  const safeFiles = (files || []).filter(Boolean).slice(0, 3);
 
   if (safeFiles.length < 3) {
     const e = new Error("minimum_3_photos_required");
@@ -138,7 +136,7 @@ async function enrollMulti(files, labels = []) {
     "/enroll-multi",
     { labels: labels || [] },
     photoFiles,
-    240000
+    45000
   );
 
   if (!result?.ok) {
@@ -155,7 +153,7 @@ async function verifyFromUpload(file, embeddings) {
     "/verify",
     { embeddings },
     [{ fieldName: "photo", file }],
-    90000
+    15000
   );
 
   if (!result?.ok) {

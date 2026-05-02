@@ -7,7 +7,7 @@ router.post(
   "/enroll-multi",
   authenticate,
   authorize("FIELD", "ADMIN", "MANAGER"),
-  uploadFaceMemory.array("photos", 10),
+  uploadFaceMemory.array("photos", 3),
   controller.enrollMulti
 );
 

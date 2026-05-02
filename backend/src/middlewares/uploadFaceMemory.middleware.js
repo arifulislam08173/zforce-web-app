@@ -16,7 +16,7 @@ module.exports = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024,
-    files: 5,
+    fileSize: 4 * 1024 * 1024,
+    files: 3,
   },
 });

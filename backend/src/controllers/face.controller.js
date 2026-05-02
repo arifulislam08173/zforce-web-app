@@ -9,28 +9,38 @@ exports.enrollMulti = async (req, res, next) => {
     if (files.length < 3) {
       return res.status(400).json({
         code: "MINIMUM_3_PHOTOS_REQUIRED",
-        message: "At least 3 face photos are required.",
+        message: "Exactly 3 clear face photos are required.",
       });
     }
 
     const labels = (() => {
       try {
-        if (!req.body.labels) return [];
+        if (!req.body.labels) return ["front", "left", "right"];
         return Array.isArray(req.body.labels)
           ? req.body.labels
           : JSON.parse(req.body.labels);
       } catch {
-        return [];
+        return ["front", "left", "right"];
       }
     })();
 
-    const result = await faceLocal.enrollMulti(files, labels);
+    const result = await faceLocal.enrollMulti(files.slice(0, 3), labels);
+
+    if (!result?.ok || !Array.isArray(result.samples) || result.samples.length < 3) {
+      return res.status(400).json({
+        code: "FACE_ENROLL_FAILED",
+        message: "Face service did not return enough good samples.",
+        details: result || null,
+      });
+    }
+
     const embeddings = result.samples.map((s) => s.embedding);
 
     await User.update(
       {
         faceEmbeddings: JSON.stringify(embeddings),
         faceEnrolled: true,
+        faceEnrollAt: new Date(),
       },
       { where: { id: userId } }
     );
@@ -41,10 +51,12 @@ exports.enrollMulti = async (req, res, next) => {
       data: {
         acceptedCount: result.accepted_count,
         rejectedCount: result.rejected_count,
-        rejected: result.rejected,
+        rejected: result.rejected || [],
       },
     });
   } catch (e) {
+    console.error("FACE ENROLL ERROR:", e.message, e.details || "");
+
     const msg = String(e.message || "");
 
     if (msg === "FACE_SERVICE_TIMEOUT") {
@@ -57,7 +69,7 @@ exports.enrollMulti = async (req, res, next) => {
     if (msg === "minimum_3_photos_required") {
       return res.status(400).json({
         code: "MINIMUM_3_PHOTOS_REQUIRED",
-        message: "At least 3 face photos are required.",
+        message: "Exactly 3 face photos are required.",
       });
     }
 
@@ -69,10 +81,24 @@ exports.enrollMulti = async (req, res, next) => {
       });
     }
 
-    if (msg === "INVALID_UPLOAD_FILE" || msg === "UPLOAD_FILE_HAS_NO_PATH_OR_BUFFER") {
+    if (msg === "image_too_dark") {
       return res.status(400).json({
-        code: "INVALID_UPLOAD_FILE",
-        message: "Uploaded image data is invalid. Please capture the photos again.",
+        code: "IMAGE_TOO_DARK",
+        message: "Image is too dark. Move to brighter light and try again.",
+      });
+    }
+
+    if (msg === "image_too_blurry") {
+      return res.status(400).json({
+        code: "IMAGE_TOO_BLURRY",
+        message: "Image is blurry. Hold the phone steady and try again.",
+      });
+    }
+
+    if (msg === "face_too_small") {
+      return res.status(400).json({
+        code: "FACE_TOO_SMALL",
+        message: "Move your face closer to the camera.",
       });
     }
 

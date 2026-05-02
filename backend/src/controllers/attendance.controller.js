@@ -70,7 +70,6 @@ const mapFaceErrorToResponse = (e, res, next) => {
       verify: details
         ? {
             bestDistance: details.best_distance,
-            avgTop2Distance: details.avg_top2_distance,
             threshold: details.threshold,
             blurStatus: details.blur_status,
             quality: details.quality,
@@ -114,10 +113,24 @@ const mapFaceErrorToResponse = (e, res, next) => {
     });
   }
 
+  if (msg.includes("image_too_large")) {
+    return res.status(400).json({
+      code: "IMAGE_TOO_LARGE",
+      message: "Captured image is too large. Please try again.",
+    });
+  }
+
   if (msg.includes("no_stored_embeddings")) {
     return res.status(403).json({
       code: "NO_STORED_EMBEDDINGS",
       message: "No enrolled face samples found. Please enroll face again.",
+    });
+  }
+
+  if (msg === "FACE_SERVICE_TIMEOUT") {
+    return res.status(504).json({
+      code: "FACE_SERVICE_TIMEOUT",
+      message: "Face verification took too long. Please retry.",
     });
   }
 
@@ -157,7 +170,6 @@ exports.punchIn = async (req, res, next) => {
       data: attendance,
       verify: {
         bestDistance: verify.best_distance,
-        avgTop2Distance: verify.avg_top2_distance,
         threshold: verify.threshold,
         blurStatus: verify.blur_status,
         quality: verify.quality,
@@ -194,7 +206,6 @@ exports.punchOut = async (req, res, next) => {
       data: attendance,
       verify: {
         bestDistance: verify.best_distance,
-        avgTop2Distance: verify.avg_top2_distance,
         threshold: verify.threshold,
         blurStatus: verify.blur_status,
         quality: verify.quality,
