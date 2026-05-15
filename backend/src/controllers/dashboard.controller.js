@@ -3,12 +3,11 @@ const DashboardService = require("../services/dashboard.service");
 
 exports.getStats = async (req, res, next) => {
   try {
-
     if (String(req.user?.role || "").toUpperCase() === "FIELD") {
       const data = await DashboardService.getStats(req.user);
       return res.json(data);
     }
-    
+
     const totalUsers = await User.count();
     const totalCustomers = await Customer.count();
     const totalVisits = await Visit.count();
@@ -24,6 +23,15 @@ exports.getStats = async (req, res, next) => {
       totalCollections,
       totalExpenses,
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.getAnalytics = async (req, res, next) => {
+  try {
+    const data = await DashboardService.getAnalytics(req.user, req.query.period || "all");
+    res.status(200).json(data);
   } catch (err) {
     next(err);
   }

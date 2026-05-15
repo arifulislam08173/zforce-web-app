@@ -45,7 +45,7 @@ Object.values(models).forEach((model) => {
   }
 });
 
-const SENSITIVE_FIELDS = new Set(['password', 'faceEmbedding']);
+const SENSITIVE_FIELDS = new Set(['password', 'faceEmbedding', 'faceEmbeddings']);
 
 function sanitizeSnapshot(value) {
   if (value instanceof Date) return value.toISOString();

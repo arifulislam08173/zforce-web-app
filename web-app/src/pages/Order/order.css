@@ -124,6 +124,7 @@
 .btn-primary,
 .btn-secondary {
   padding: 10px 14px;
+  margin-bottom: 6px;
   border-radius: 10px;
   border: none;
   cursor: pointer;
@@ -506,5 +507,117 @@
   }
   .modal-head-right{
     justify-content: flex-end;
+  }
+}
+
+
+/* ---------- Approve requested quantity helpers ---------- */
+.items-subtitle {
+  margin: 4px 0px 10px;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.items-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-approve-all {
+  height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  background: linear-gradient(135deg, #ecfdf5, #eff6ff);
+  color: #047857;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.16s ease;
+}
+
+.btn-approve-all:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(135deg, #d1fae5, #dbeafe);
+}
+
+.approved-qty-cell {
+  display: grid;
+  grid-template-columns: minmax(86px, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.approved-qty-input {
+  min-width: 86px;
+}
+
+.btn-approve-row {
+  height: 38px;
+  padding: 0 11px;
+  border-radius: 12px;
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  background: #ecfdf5;
+  color: #047857;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: 0.16s ease;
+}
+
+.btn-approve-row:hover:not(:disabled) {
+  background: #d1fae5;
+  border-color: rgba(16, 185, 129, 0.42);
+  color: #065f46;
+  transform: translateY(-1px);
+}
+
+.btn-approve-row:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.approved-qty-helper {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.row-error-text {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #b42318;
+  font-weight: 700;
+}
+
+@media (max-width: 768px) {
+  .items-header {
+    align-items: flex-start;
+  }
+
+  .items-actions {
+    width: 100%;
+  }
+
+  .items-actions .btn-secondary,
+  .btn-approve-all {
+    flex: 1;
+    min-width: 160px;
+  }
+
+  .approved-qty-cell {
+    grid-template-columns: 1fr;
+  }
+
+  .btn-approve-row {
+    width: 100%;
   }
 }

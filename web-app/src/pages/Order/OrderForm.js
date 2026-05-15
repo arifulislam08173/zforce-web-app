@@ -138,6 +138,28 @@ const OrderForm = () => {
     });
   };
 
+  const approveRowAsRequested = (idx) => {
+    setItems((prev) => {
+      const next = [...prev];
+      const row = { ...next[idx] };
+      const requestedQty = Math.max(0, Number(row.quantity || 0));
+
+      row.approvedQuantity = requestedQty;
+      next[idx] = row;
+
+      return next;
+    });
+  };
+
+  const approveAllAsRequested = () => {
+    setItems((prev) =>
+      prev.map((row) => ({
+        ...row,
+        approvedQuantity: Math.max(0, Number(row.quantity || 0)),
+      }))
+    );
+  };
+
   const addRow = () => setItems((prev) => [...prev, { ...emptyItem }]);
   const removeRow = (idx) =>
     setItems((prev) => (prev.length === 1 ? prev : prev.filter((_, i) => i !== idx)));
@@ -283,10 +305,30 @@ const OrderForm = () => {
         </div>
 
         <div className="items-header">
-          <h3 className="items-title">Items</h3>
-          <button type="button" className="btn-secondary" onClick={addRow}>
-            + Add Item
-          </button>
+          <div>
+            <h3 className="items-title">Items</h3>
+            {canApprove && isEdit ? (
+              <p className="items-subtitle">
+                Approve requested quantities quickly, or adjust each item manually.
+              </p>
+            ) : null}
+          </div>
+
+          <div className="items-actions">
+            {canApprove && isEdit ? (
+              <button
+                type="button"
+                className="btn-approve-all"
+                onClick={approveAllAsRequested}
+              >
+                ✓ Approve all as requested
+              </button>
+            ) : null}
+
+            <button type="button" className="btn-secondary" onClick={addRow}>
+              + Add Item
+            </button>
+          </div>
         </div>
 
         <div className="table-wrap">
@@ -336,16 +378,33 @@ const OrderForm = () => {
                     </td>
                     {canApprove && isEdit ? (
                       <td>
-                        <input
-                          className="input"
-                          type="number"
-                          min="0"
-                          max={it.quantity}
-                          value={it.approvedQuantity}
-                          onChange={(e) => setItemField(idx, "approvedQuantity", e.target.value)}
-                        />
+                        <div className="approved-qty-cell">
+                          <input
+                            className="input approved-qty-input"
+                            type="number"
+                            min="0"
+                            max={it.quantity}
+                            value={it.approvedQuantity}
+                            onChange={(e) => setItemField(idx, "approvedQuantity", e.target.value)}
+                          />
+
+                          <button
+                            type="button"
+                            className="btn-approve-row"
+                            title="Set approved quantity same as requested quantity"
+                            onClick={() => approveRowAsRequested(idx)}
+                            disabled={!it.productId}
+                          >
+                            ✓ Req
+                          </button>
+                        </div>
+
+                        {/* <div className="approved-qty-helper">
+                          Requested: <strong>{Number(it.quantity || 0)}</strong>
+                        </div> */}
+
                         {showRowError ? (
-                          <div style={{ fontSize: 12, color: "#b42318", marginTop: 6 }}>
+                          <div className="row-error-text">
                             Approved quantity exceeds stock
                           </div>
                         ) : null}

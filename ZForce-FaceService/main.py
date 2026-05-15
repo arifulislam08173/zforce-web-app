@@ -455,27 +455,33 @@ app.add_middleware(
 # =========================
 MODEL_NAME = os.getenv("FACE_MODEL_NAME", "ArcFace")
 
-# Faster than retinaface in most cases
-DETECTOR = os.getenv("FACE_DETECTOR", "opencv")
+# Better for mixed devices. Primary can be retinaface, fallback will try opencv too.
+DETECTOR = os.getenv("FACE_DETECTOR", "retinaface")
 
 VERIFY_THRESHOLD = float(os.getenv("VERIFY_THRESHOLD", "0.42"))
 BORDERLINE_VERIFY_THRESHOLD = float(os.getenv("BORDERLINE_VERIFY_THRESHOLD", "0.40"))
 
-MIN_FACE_W = int(os.getenv("MIN_FACE_W", "90"))
-MIN_FACE_H = int(os.getenv("MIN_FACE_H", "90"))
-MIN_BRIGHTNESS = int(os.getenv("MIN_BRIGHTNESS", "45"))
+MIN_FACE_W = int(os.getenv("MIN_FACE_W", "70"))
+MIN_FACE_H = int(os.getenv("MIN_FACE_H", "70"))
+MIN_BRIGHTNESS = int(os.getenv("MIN_BRIGHTNESS", "35"))
 
-BLUR_HARD_REJECT = float(os.getenv("BLUR_HARD_REJECT", "22.0"))
-BLUR_WARN = float(os.getenv("BLUR_WARN", "35.0"))
+BLUR_HARD_REJECT = float(os.getenv("BLUR_HARD_REJECT", "12.0"))
+BLUR_WARN = float(os.getenv("BLUR_WARN", "25.0"))
 
+# Server-side safety resize. Mobile should also compress before upload.
 MAX_IMAGE_DIMENSION = int(os.getenv("MAX_IMAGE_DIMENSION", "800"))
 
-# Keep enrollment fast and strict
+# Analyze must be very fast because mobile enrollment calls it after every capture.
+# Keep final enroll/verify on ArcFace + main detector, but use this smaller image
+# size and OpenCV-first detector for pre-check only.
+ANALYZE_IMAGE_DIMENSION = int(os.getenv("ANALYZE_IMAGE_DIMENSION", "640"))
+ANALYZE_DETECTOR = os.getenv("ANALYZE_DETECTOR", "opencv")
+
 MAX_ENROLL_PHOTOS = 3
 MIN_ENROLL_PHOTOS = 3
 
-# Reject huge uploads early
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "4"))
+
 
 def fail(code: str, extra: dict | None = None):
     payload = {"ok": False, "error": code}
@@ -483,15 +489,18 @@ def fail(code: str, extra: dict | None = None):
         payload.update(extra)
     return payload
 
+
 def read_image(file_bytes: bytes):
     arr = np.frombuffer(file_bytes, np.uint8)
     img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
     return img
 
+
 def validate_upload_size(file_bytes: bytes):
     size_mb = len(file_bytes) / (1024 * 1024)
     if size_mb > MAX_UPLOAD_MB:
         raise ValueError("image_too_large")
+
 
 def resize_for_processing(img: np.ndarray, max_dim: int = MAX_IMAGE_DIMENSION):
     if img is None or img.size == 0:
@@ -504,10 +513,29 @@ def resize_for_processing(img: np.ndarray, max_dim: int = MAX_IMAGE_DIMENSION):
         return img
 
     scale = max_dim / float(longest)
-    new_w = int(w * scale)
-    new_h = int(h * scale)
+    new_w = max(1, int(w * scale))
+    new_h = max(1, int(h * scale))
 
     return cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+
+def normalize_image_for_deepface(img: np.ndarray):
+    if img is None or img.size == 0:
+        raise ValueError("invalid_image")
+
+    if len(img.shape) == 2:
+        img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+
+    if len(img.shape) == 3 and img.shape[2] == 4:
+        img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
+
+    img = resize_for_processing(img)
+
+    if not img.flags["C_CONTIGUOUS"]:
+        img = np.ascontiguousarray(img)
+
+    return img
+
 
 def cosine_distance(a: np.ndarray, b: np.ndarray) -> float:
     a = a.astype(np.float32)
@@ -515,8 +543,10 @@ def cosine_distance(a: np.ndarray, b: np.ndarray) -> float:
     denom = (np.linalg.norm(a) * np.linalg.norm(b)) + 1e-8
     return 1.0 - float(np.dot(a, b) / denom)
 
+
 def clamp(v: int, lo: int, hi: int) -> int:
     return max(lo, min(hi, v))
+
 
 def crop_face_region(img: np.ndarray, facial_area: dict, pad_ratio: float = 0.15):
     img_h, img_w = img.shape[:2]
@@ -543,6 +573,7 @@ def crop_face_region(img: np.ndarray, facial_area: dict, pad_ratio: float = 0.15
 
     return crop
 
+
 def image_quality_score(img: np.ndarray):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     brightness = float(np.mean(gray))
@@ -552,8 +583,10 @@ def image_quality_score(img: np.ndarray):
         "sharpness": round(sharpness, 2),
     }
 
+
 def map_error(e: Exception) -> str:
     msg = str(e)
+
     known = {
         "no_face_detected",
         "face_too_small",
@@ -566,29 +599,137 @@ def map_error(e: Exception) -> str:
         "no_stored_embeddings",
         "invalid_embeddings_payload",
     }
+
     return msg if msg in known else "face_processing_failed"
 
+
+def get_detector_candidates():
+    primary = DETECTOR or "retinaface"
+    candidates = [primary, "retinaface", "opencv"]
+
+    unique = []
+    for detector in candidates:
+        if detector and detector not in unique:
+            unique.append(detector)
+
+    return unique
+
+
 def _deepface_represent(img: np.ndarray):
-    return DeepFace.represent(
-        img_path=img,
-        model_name=MODEL_NAME,
-        detector_backend=DETECTOR,
-        enforce_detection=True,
-    )
+    last_error = None
 
-def extract_face_and_embedding(img: np.ndarray, verify_mode: bool = False):
-    img = resize_for_processing(img)
+    for detector in get_detector_candidates():
+        try:
+            reps = DeepFace.represent(
+                img_path=img,
+                model_name=MODEL_NAME,
+                detector_backend=detector,
+                enforce_detection=True,
+            )
 
-    reps = _deepface_represent(img)
+            if reps and len(reps) > 0:
+                return reps, detector
 
-    if not reps or len(reps) == 0:
-        raise ValueError("no_face_detected")
+        except Exception as e:
+            last_error = e
+            print(f"[FACE DEBUG] detector={detector} failed: {repr(e)}")
 
-    rep = reps[0]
-    facial_area = rep.get("facial_area", {}) or {}
+    # Soft final attempt. Useful for device-specific camera frames.
+    try:
+        reps = DeepFace.represent(
+            img_path=img,
+            model_name=MODEL_NAME,
+            detector_backend="opencv",
+            enforce_detection=False,
+        )
 
+        if reps and len(reps) > 0:
+            print("[FACE DEBUG] soft fallback enforce_detection=False succeeded")
+            return reps, "opencv_soft"
+
+    except Exception as e:
+        last_error = e
+        print(f"[FACE DEBUG] soft fallback failed: {repr(e)}")
+
+    print(f"[FACE DEBUG] all detectors failed. last_error={repr(last_error)}")
+    raise ValueError("no_face_detected")
+
+
+def get_analyze_detector_candidates():
+    """
+    Analyze is only a pre-check before final enroll.
+    Use OpenCV first to avoid retinaface timeout on mobile images.
+    Final /enroll-multi and /verify still use ArcFace represent with the normal
+    detector candidates, so matching accuracy remains protected.
+    """
+    candidates = [ANALYZE_DETECTOR, "opencv"]
+
+    unique = []
+    for detector in candidates:
+        if detector and detector not in unique:
+            unique.append(detector)
+
+    return unique
+
+
+def _deepface_extract_faces(img: np.ndarray):
+    last_error = None
+
+    for detector in get_analyze_detector_candidates():
+        try:
+            faces = DeepFace.extract_faces(
+                img_path=img,
+                detector_backend=detector,
+                enforce_detection=True,
+                align=False,
+            )
+
+            if faces and len(faces) > 0:
+                return faces, detector
+
+        except Exception as e:
+            last_error = e
+            print(f"[FACE DEBUG] analyze detector={detector} failed: {repr(e)}")
+
+    # Soft final attempt for mixed mobile camera frames.
+    # Still OpenCV only, because this route must not block enrollment.
+    try:
+        faces = DeepFace.extract_faces(
+            img_path=img,
+            detector_backend="opencv",
+            enforce_detection=False,
+            align=False,
+        )
+
+        if faces and len(faces) > 0:
+            print("[FACE DEBUG] analyze soft fallback enforce_detection=False succeeded")
+            return faces, "opencv_soft"
+
+    except Exception as e:
+        last_error = e
+        print(f"[FACE DEBUG] analyze soft fallback failed: {repr(e)}")
+
+    print(f"[FACE DEBUG] analyze all detectors failed. last_error={repr(last_error)}")
+    raise ValueError("no_face_detected")
+
+
+def validate_face_quality(img: np.ndarray, facial_area: dict, used_detector: str):
     w = int(facial_area.get("w", 0))
     h = int(facial_area.get("h", 0))
+
+    if w <= 0 or h <= 0:
+        if used_detector == "opencv_soft":
+            img_h, img_w = img.shape[:2]
+            facial_area = {
+                "x": 0,
+                "y": 0,
+                "w": img_w,
+                "h": img_h,
+            }
+            w = img_w
+            h = img_h
+        else:
+            raise ValueError("no_face_detected")
 
     if w < MIN_FACE_W or h < MIN_FACE_H:
         raise ValueError("face_too_small")
@@ -601,22 +742,12 @@ def extract_face_and_embedding(img: np.ndarray, verify_mode: bool = False):
 
     blur_status = "good"
 
-    # Keep verify lighter than enroll
-    if verify_mode:
-        if quality["sharpness"] < BLUR_HARD_REJECT:
-            raise ValueError("image_too_blurry")
-        elif quality["sharpness"] < BLUR_WARN:
-            blur_status = "borderline"
-    else:
-        if quality["sharpness"] < BLUR_HARD_REJECT:
-            raise ValueError("image_too_blurry")
-        elif quality["sharpness"] < BLUR_WARN:
-            blur_status = "borderline"
-
-    embedding = np.array(rep["embedding"], dtype=np.float32)
+    if quality["sharpness"] < BLUR_HARD_REJECT:
+        raise ValueError("image_too_blurry")
+    elif quality["sharpness"] < BLUR_WARN:
+        blur_status = "borderline"
 
     return {
-        "embedding": embedding,
         "facial_area": {
             "x": int(facial_area.get("x", 0)),
             "y": int(facial_area.get("y", 0)),
@@ -626,6 +757,77 @@ def extract_face_and_embedding(img: np.ndarray, verify_mode: bool = False):
         "quality": quality,
         "blur_status": blur_status,
     }
+
+
+def extract_face_quality(img: np.ndarray):
+    """
+    Fast analyze mode.
+    This checks face presence + brightness + blur without calculating ArcFace embedding.
+    Final enroll and verify still calculate ArcFace embeddings, so accuracy is preserved.
+    """
+    img = normalize_image_for_deepface(img)
+    img = resize_for_processing(img, ANALYZE_IMAGE_DIMENSION)
+    faces, used_detector = _deepface_extract_faces(img)
+
+    if not faces or len(faces) == 0:
+        raise ValueError("no_face_detected")
+
+    face_obj = faces[0]
+    facial_area = face_obj.get("facial_area", {}) or {}
+
+    quality_data = validate_face_quality(img, facial_area, used_detector)
+
+    print(
+        "[FACE DEBUG] analyze accepted detector=",
+        used_detector,
+        "face=",
+        {
+            "w": quality_data["facial_area"]["w"],
+            "h": quality_data["facial_area"]["h"],
+        },
+        "quality=",
+        quality_data["quality"],
+    )
+
+    return {
+        **quality_data,
+        "detector": used_detector,
+    }
+
+
+def extract_face_and_embedding(img: np.ndarray, verify_mode: bool = False):
+    img = normalize_image_for_deepface(img)
+
+    reps, used_detector = _deepface_represent(img)
+
+    if not reps or len(reps) == 0:
+        raise ValueError("no_face_detected")
+
+    rep = reps[0]
+    facial_area = rep.get("facial_area", {}) or {}
+
+    quality_data = validate_face_quality(img, facial_area, used_detector)
+
+    print(
+        "[FACE DEBUG] accepted detector=",
+        used_detector,
+        "face=",
+        {
+            "w": quality_data["facial_area"]["w"],
+            "h": quality_data["facial_area"]["h"],
+        },
+        "quality=",
+        quality_data["quality"],
+    )
+
+    embedding = np.array(rep["embedding"], dtype=np.float32)
+
+    return {
+        "embedding": embedding,
+        **quality_data,
+        "detector": used_detector,
+    }
+
 
 def deduplicate_embeddings(samples: list, duplicate_distance_threshold: float = 0.08):
     if not samples:
@@ -640,6 +842,7 @@ def deduplicate_embeddings(samples: list, duplicate_distance_threshold: float = 
         for kept in accepted:
             kept_emb = np.array(kept["embedding"], dtype=np.float32)
             dist = cosine_distance(emb, kept_emb)
+
             if dist < duplicate_distance_threshold:
                 is_duplicate = True
                 break
@@ -649,18 +852,32 @@ def deduplicate_embeddings(samples: list, duplicate_distance_threshold: float = 
 
     return accepted
 
+
 @app.on_event("startup")
 def warmup():
     dummy = np.zeros((224, 224, 3), dtype=np.uint8)
     try:
+        # Warm model path used by final enroll/verify.
         DeepFace.represent(
             img_path=dummy,
             model_name=MODEL_NAME,
-            detector_backend=DETECTOR,
+            detector_backend="opencv",
             enforce_detection=False,
         )
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"[FACE DEBUG] represent warmup skipped: {repr(e)}")
+
+    try:
+        # Warm fast analyze path too.
+        DeepFace.extract_faces(
+            img_path=dummy,
+            detector_backend="opencv",
+            enforce_detection=False,
+            align=True,
+        )
+    except Exception as e:
+        print(f"[FACE DEBUG] analyze warmup skipped: {repr(e)}")
+
 
 @app.get("/health")
 def health():
@@ -668,39 +885,57 @@ def health():
         "ok": True,
         "model": MODEL_NAME,
         "detector": DETECTOR,
+        "detector_candidates": get_detector_candidates(),
         "threshold": VERIFY_THRESHOLD,
         "borderline_threshold": BORDERLINE_VERIFY_THRESHOLD,
+        "min_face_w": MIN_FACE_W,
+        "min_face_h": MIN_FACE_H,
+        "min_brightness": MIN_BRIGHTNESS,
+        "blur_hard_reject": BLUR_HARD_REJECT,
+        "blur_warn": BLUR_WARN,
         "max_image_dimension": MAX_IMAGE_DIMENSION,
+        "analyze_image_dimension": ANALYZE_IMAGE_DIMENSION,
+        "analyze_detector": ANALYZE_DETECTOR,
         "min_enroll_photos": MIN_ENROLL_PHOTOS,
         "max_enroll_photos": MAX_ENROLL_PHOTOS,
         "max_upload_mb": MAX_UPLOAD_MB,
+        "analyze_mode": "fast_quality_check",
     }
+
 
 @app.post("/analyze")
 async def analyze(photo: UploadFile = File(...)):
     try:
         raw = await photo.read()
         validate_upload_size(raw)
+
         img = read_image(raw)
         if img is None:
             return fail("invalid_image")
 
-        data = await run_in_threadpool(extract_face_and_embedding, img, False)
+        data = await run_in_threadpool(extract_face_quality, img)
 
         return {
             "ok": True,
             "quality": data["quality"],
             "facial_area": data["facial_area"],
             "blur_status": data["blur_status"],
+            "detector": data.get("detector"),
+            "mode": "fast_quality_check",
         }
+
     except Exception as e:
-        return fail(map_error(e))
+        code = map_error(e)
+        print(f"[FACE DEBUG] analyze failed: code={code}, error={repr(e)}")
+        return fail(code)
+
 
 @app.post("/embed")
 async def embed(photo: UploadFile = File(...)):
     try:
         raw = await photo.read()
         validate_upload_size(raw)
+
         img = read_image(raw)
         if img is None:
             return fail("invalid_image")
@@ -713,9 +948,14 @@ async def embed(photo: UploadFile = File(...)):
             "quality": data["quality"],
             "facial_area": data["facial_area"],
             "blur_status": data["blur_status"],
+            "detector": data.get("detector"),
         }
+
     except Exception as e:
-        return fail(map_error(e))
+        code = map_error(e)
+        print(f"[FACE DEBUG] embed failed: code={code}, error={repr(e)}")
+        return fail(code)
+
 
 @app.post("/enroll-multi")
 async def enroll_multi(
@@ -725,7 +965,6 @@ async def enroll_multi(
     if not photos or len(photos) < MIN_ENROLL_PHOTOS:
         return fail("minimum_3_photos_required")
 
-    # Exactly 3 photos for speed and UX
     photos = photos[:MAX_ENROLL_PHOTOS]
 
     parsed_labels = []
@@ -739,7 +978,8 @@ async def enroll_multi(
     rejected = []
 
     for i, photo in enumerate(photos):
-        label = parsed_labels[i] if i < len(parsed_labels) else f"sample_{i+1}"
+        label = parsed_labels[i] if i < len(parsed_labels) else f"sample_{i + 1}"
+
         try:
             raw = await photo.read()
             validate_upload_size(raw)
@@ -757,11 +997,15 @@ async def enroll_multi(
                 "quality": data["quality"],
                 "facial_area": data["facial_area"],
                 "blur_status": data["blur_status"],
+                "detector": data.get("detector"),
             })
+
         except Exception as e:
+            reason = map_error(e)
+            print(f"[FACE DEBUG] enroll sample failed: label={label}, reason={reason}, error={repr(e)}")
             rejected.append({
                 "label": label,
-                "reason": map_error(e),
+                "reason": reason,
             })
 
     accepted = deduplicate_embeddings(accepted)
@@ -783,6 +1027,7 @@ async def enroll_multi(
         "samples": accepted,
         "rejected": rejected,
     }
+
 
 @app.post("/verify")
 async def verify(
@@ -815,7 +1060,12 @@ async def verify(
         best_distance = distances_sorted[0]
         blur_status = data["blur_status"]
 
-        effective_threshold = BORDERLINE_VERIFY_THRESHOLD if blur_status == "borderline" else VERIFY_THRESHOLD
+        effective_threshold = (
+            BORDERLINE_VERIFY_THRESHOLD
+            if blur_status == "borderline"
+            else VERIFY_THRESHOLD
+        )
+
         match = best_distance <= effective_threshold
 
         return {
@@ -825,6 +1075,10 @@ async def verify(
             "threshold": float(effective_threshold),
             "blur_status": blur_status,
             "quality": data["quality"],
+            "detector": data.get("detector"),
         }
+
     except Exception as e:
-        return fail(map_error(e))
+        code = map_error(e)
+        print(f"[FACE DEBUG] verify failed: code={code}, error={repr(e)}")
+        return fail(code)
