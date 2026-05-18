@@ -13,7 +13,13 @@ const FACE_ANALYZE_TIMEOUT_MS = Number(
 const FACE_VERIFY_TIMEOUT_MS = Number(
   process.env.FACE_VERIFY_TIMEOUT_MS ||
     process.env.FACE_SERVICE_TIMEOUT_MS ||
-    30000
+    45000
+);
+
+const FACE_FAST_VERIFY_TIMEOUT_MS = Number(
+  process.env.FACE_FAST_VERIFY_TIMEOUT_MS ||
+    process.env.FACE_SERVICE_TIMEOUT_MS ||
+    12000
 );
 
 const FACE_ENROLL_TIMEOUT_MS = Number(
@@ -24,6 +30,7 @@ const FACE_ENROLL_TIMEOUT_MS = Number(
 
 function createFaceError(message, details = null) {
   const error = new Error(message || "FACE_SERVICE_ERROR");
+  error.code = message || "FACE_SERVICE_ERROR";
   error.details = details;
   return error;
 }
@@ -56,11 +63,19 @@ function appendFileToForm(form, fieldName, file) {
   throw createFaceError("UPLOAD_FILE_HAS_NO_PATH_OR_BUFFER");
 }
 
-async function postWithFiles(path, fields = {}, files = [], timeout = 20000) {
+function normalizeFieldValue(value) {
+  if (value === undefined || value === null) {
+    return "";
+  }
+
+  return typeof value === "string" ? value : JSON.stringify(value);
+}
+
+async function postWithFiles(path, fields = {}, files = [], timeout = 30000) {
   const form = new FormData();
 
-  Object.entries(fields).forEach(([key, value]) => {
-    form.append(key, typeof value === "string" ? value : JSON.stringify(value));
+  Object.entries(fields || {}).forEach(([key, value]) => {
+    form.append(key, normalizeFieldValue(value));
   });
 
   files.forEach(({ fieldName, file }) => {
@@ -82,7 +97,7 @@ async function postWithFiles(path, fields = {}, files = [], timeout = 20000) {
         headers["Content-Length"] = contentLength;
       }
     } catch {
-      // FormData length is optional.
+      // Content-Length is optional for FormData.
     }
 
     const res = await axios.post(`${FACE_API_URL}${path}`, form, {
@@ -90,10 +105,27 @@ async function postWithFiles(path, fields = {}, files = [], timeout = 20000) {
       timeout,
       maxBodyLength: Infinity,
       maxContentLength: Infinity,
+      validateStatus: () => true,
     });
 
-    return res.data;
+    const data = res.data;
+
+    if (!data || data.ok === false) {
+      const responseError =
+        data?.error ||
+        data?.code ||
+        data?.message ||
+        "FACE_SERVICE_ERROR";
+
+      throw createFaceError(responseError, data || {});
+    }
+
+    return data;
   } catch (err) {
+    if (err?.details) {
+      throw err;
+    }
+
     if (err.code === "ECONNABORTED") {
       throw createFaceError("FACE_SERVICE_TIMEOUT", {
         timeout,
@@ -173,7 +205,7 @@ async function analyzeFromUpload(file) {
   throw createFaceError(analyzeError, result);
 }
 
-async function embedFromUpload(file, timeout = FACE_ANALYZE_TIMEOUT_MS) {
+async function embedFromUpload(file, timeout = FACE_ENROLL_TIMEOUT_MS) {
   const result = await postWithFiles(
     "/embed",
     {},
@@ -185,13 +217,27 @@ async function embedFromUpload(file, timeout = FACE_ANALYZE_TIMEOUT_MS) {
     throw createFaceError(result?.error || "FACE_EMBED_FAILED", result);
   }
 
+  if (!Array.isArray(result.embedding)) {
+    throw createFaceError("FACE_EMBEDDING_MISSING", result);
+  }
+
   return result;
 }
 
+/**
+ * Professional enrollment flow.
+ * One captured photo goes to Python /embed.
+ * Python returns a verified ArcFace embedding.
+ * Backend controller later saves 3 verified embeddings in /enroll-complete.
+ */
 async function enrollSample(file) {
   return embedFromUpload(file, FACE_ENROLL_TIMEOUT_MS);
 }
 
+/**
+ * Legacy enrollment flow.
+ * Kept so older mobile code or fallback code still works.
+ */
 async function enrollMulti(files, labels = []) {
   const safeFiles = (files || []).filter(Boolean).slice(0, 3);
 
@@ -220,10 +266,43 @@ async function enrollMulti(files, labels = []) {
   return result;
 }
 
+/**
+ * Fast punch verification.
+ * This should only be used as a fast confident accept path.
+ * Attendance controller must fallback to verifyFromUpload if:
+ * - /verify-fast fails
+ * - match is false
+ * - confidence is low
+ */
+async function verifyFastFromUpload(file, embeddings) {
+  const result = await postWithFiles(
+    "/verify-fast",
+    {
+      embeddings:
+        typeof embeddings === "string" ? embeddings : JSON.stringify(embeddings),
+    },
+    [{ fieldName: "photo", file }],
+    FACE_FAST_VERIFY_TIMEOUT_MS
+  );
+
+  if (!result?.ok) {
+    throw createFaceError(result?.error || "FACE_FAST_VERIFY_FAILED", result);
+  }
+
+  return result;
+}
+
+/**
+ * Full accurate punch verification.
+ * This is the final authority for attendance verification.
+ */
 async function verifyFromUpload(file, embeddings) {
   const result = await postWithFiles(
     "/verify",
-    { embeddings },
+    {
+      embeddings:
+        typeof embeddings === "string" ? embeddings : JSON.stringify(embeddings),
+    },
     [{ fieldName: "photo", file }],
     FACE_VERIFY_TIMEOUT_MS
   );
@@ -240,5 +319,6 @@ module.exports = {
   embedFromUpload,
   enrollSample,
   enrollMulti,
+  verifyFastFromUpload,
   verifyFromUpload,
 };

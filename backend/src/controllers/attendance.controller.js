@@ -28,7 +28,49 @@ async function verifyFaceOrThrow(userId, file) {
     throw new Error("FACE_NOT_ENROLLED");
   }
 
-  const result = await faceLocal.verifyFromUpload(file, embeddings);
+  let result = null;
+
+  // Professional hybrid verification:
+  // 1) Try strict fast accept. It never rejects the user.
+  // 2) If not confident, fall back to the full accurate /verify path.
+  try {
+    const fast = await faceLocal.verifyFastFromUpload(file, embeddings);
+
+    if (fast?.ok && fast.match === true) {
+      return {
+        ...fast,
+        mode: "fast",
+      };
+    }
+
+    console.log("FACE FAST VERIFY NOT CONFIDENT, USING FULL VERIFY", {
+      bestDistance: fast?.best_distance,
+      threshold: fast?.threshold,
+      blurStatus: fast?.blur_status,
+      detector: fast?.detector,
+    });
+  } catch (fastError) {
+    const fastMessage = String(fastError.message || "");
+    const fastCode = String(fastError.details?.error || fastError.details?.code || "");
+
+    // Security rule: if Python says full face is not visible, do NOT fallback.
+    // A masked/covered face must be rejected immediately.
+    if (
+      fastMessage.includes("face_occluded") ||
+      fastMessage.includes("FACE_OCCLUDED") ||
+      fastCode.includes("face_occluded") ||
+      fastCode.includes("FACE_OCCLUDED")
+    ) {
+      throw fastError;
+    }
+
+    console.log("FACE FAST VERIFY FALLBACK", {
+      message: fastError.message,
+      details: fastError.details || null,
+    });
+  }
+
+  result = await faceLocal.verifyFromUpload(file, embeddings);
 
   if (!result?.ok) {
     const e = new Error(result?.error || "FACE_VERIFY_FAILED");
@@ -42,7 +84,10 @@ async function verifyFaceOrThrow(userId, file) {
     throw err;
   }
 
-  return result;
+  return {
+    ...result,
+    mode: result.mode || "full",
+  };
 }
 
 const mapFaceErrorToResponse = (e, res, next) => {
@@ -75,6 +120,13 @@ const mapFaceErrorToResponse = (e, res, next) => {
             quality: details.quality,
           }
         : undefined,
+    });
+  }
+
+  if (msg.includes("face_occluded") || msg.includes("FACE_OCCLUDED")) {
+    return res.status(400).json({
+      code: "FACE_OCCLUDED",
+      message: "Please remove mask or obstruction and keep your full face visible.",
     });
   }
 
@@ -173,6 +225,7 @@ exports.punchIn = async (req, res, next) => {
         threshold: verify.threshold,
         blurStatus: verify.blur_status,
         quality: verify.quality,
+        mode: verify.mode || verify.verifyMode || "full",
       },
     });
   } catch (e) {
@@ -209,6 +262,7 @@ exports.punchOut = async (req, res, next) => {
         threshold: verify.threshold,
         blurStatus: verify.blur_status,
         quality: verify.quality,
+        mode: verify.mode || verify.verifyMode || "full",
       },
     });
   } catch (e) {

@@ -35,21 +35,44 @@ exports.getDropdown = async ({ role } = {}) => {
 };
 
 
+const USER_ROLES = ['ADMIN', 'MANAGER', 'FIELD'];
+
 exports.listUsers = async ({ q, role, isActive, page, limit } = {}) => {
   const where = {};
 
-  if (role) where.role = String(role).toUpperCase();
+  if (role) {
+    const normalizedRole = String(role).trim().toUpperCase();
+
+    if (USER_ROLES.includes(normalizedRole)) {
+      where.role = normalizedRole;
+    }
+  }
 
   if (String(isActive) === 'true') where.isActive = true;
   if (String(isActive) === 'false') where.isActive = false;
 
   if (q && String(q).trim()) {
     const s = String(q).trim();
-    where[Op.or] = [
-      { name: { [Op.iLike]: `%${s}%` } },
-      { email: { [Op.iLike]: `%${s}%` } },
-      { role: { [Op.iLike]: `%${s}%` } },
+    const like = `%${s}%`;
+
+    const or = [
+      { name: { [Op.iLike]: like } },
+      { email: { [Op.iLike]: like } },
     ];
+
+    const matchedRoles = USER_ROLES.filter((r) =>
+      r.toLowerCase().includes(s.toLowerCase())
+    );
+
+    if (matchedRoles.length > 0) {
+      or.push({
+        role: {
+          [Op.in]: matchedRoles,
+        },
+      });
+    }
+
+    where[Op.or] = or;
   }
 
   const p = toInt(page, 1);
@@ -58,7 +81,15 @@ exports.listUsers = async ({ q, role, isActive, page, limit } = {}) => {
 
   const { rows, count } = await User.findAndCountAll({
     where,
-    attributes: ['id', 'name', 'email', 'role', 'isActive', 'createdAt', 'updatedAt'],
+    attributes: [
+      'id',
+      'name',
+      'email',
+      'role',
+      'isActive',
+      'createdAt',
+      'updatedAt',
+    ],
     order: [['createdAt', 'DESC']],
     limit: l,
     offset,

@@ -18,7 +18,7 @@ py -m venv .venv
 py -m pip install --upgrade pip
 py -m pip install -r requirements.txt
 
-# If you ever get tf_keras error:
+# If get tf_keras error:
 py -m pip install tf-keras
 
 # Run server
@@ -97,10 +97,7 @@ npm run dev
 ------------------------------------------------------------
 Open a new terminal:
 
-cd zforce-mobile-app
+cd zforceApp
 
 # (First time only)
 npm install
-
-# Run
-npx expo start
